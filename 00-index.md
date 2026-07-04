@@ -97,6 +97,7 @@ Jump to the right section based on the question you're trying to answer.
 | Secure the app (OWASP)? | [04 §7](04-web-application-design.md#7-web-application-security) |
 | Sessions vs JWT / OAuth / RBAC vs ABAC? | [04 §8](04-web-application-design.md#8-authentication--authorization) |
 | SQL vs NoSQL / caching / N+1? | [04 §9](04-web-application-design.md#9-data--persistence) |
+| Enforce data invariants (uniqueness, append-only, allowed values)? | [04 §9.6](04-web-application-design.md#96-enforce-invariants-in-the-datastore) |
 | Offline / PWA? | [04 §11](04-web-application-design.md#11-progressive-web-apps--offline) |
 | Deploy safely (blue-green/canary)? | [04 §14](04-web-application-design.md#14-deployment-strategies), [07 §9](07-security-reliability-operations.md#9-continuous-delivery) |
 | Make it observable? | [04 §13](04-web-application-design.md#13-observability), [07 §6](07-security-reliability-operations.md#6-observability) |

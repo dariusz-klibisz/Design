@@ -165,7 +165,7 @@ Prefer **additive, backward-compatible** evolution; publish deprecation timeline
 | Watch out | Many round trips | N+1, query cost, auth | Less web-native |
 
 ### 6.4 API-First / Contract-First
-Design the contract (OpenAPI / AsyncAPI / Protobuf) before implementation as the single source of truth — enabling parallel development against mocks, generated docs/clients/servers, and earlier security review. Best for multiple teams, public APIs, and microservices.
+Design the contract (OpenAPI / AsyncAPI / Protobuf) before implementation as the single source of truth — enabling parallel development against mocks, generated docs/clients/servers, and earlier security review. Best for multiple teams, public APIs, and microservices. Note that shared DTO/contract types are compile-time promises only: each boundary still needs runtime validation of incoming payloads to catch contract drift between independently deployed sides ([03 §2.1](03-software-design-principles.md#21-dry-damp-and-the-cost-of-coupling)).
 
 ### 6.5 Webhooks, Streaming, WebSockets & SSE
 - **Webhooks:** async notifications to external systems — sign payloads, include event IDs, support retries and idempotency, document ordering.
@@ -206,7 +206,7 @@ The OWASP Top 10 is the standard awareness baseline for the most critical web ap
 - **Least Privilege** — minimum access necessary.
 - **Secure by Design / Shift Left** — security from the start, not bolted on.
 - **Zero Trust** — *never trust, always verify*; authenticate/authorize every request.
-- **Fail Securely** — errors default to denying access, not granting it.
+- **Fail Securely** — errors default to denying access, not granting it. This includes the *configuration* dimension: a missing key, secret, or setting must disable the **feature**, not the **control**. Verification code gated on the presence of its own key (`if (key) verify(...)`) is fail-open by construction, and an unset shared secret that compares equal to an absent header is an authentication bypass. Refuse to start, or refuse the request, when a security-relevant setting is absent.
 - **Never Trust User Input** — validate and encode everything from the client.
 
 ### 7.3 Common Attack Defenses
@@ -253,7 +253,7 @@ Core trade-off: revocability/control vs. statelessness/scalability. Mitigate JWT
 Example ABAC rule: *"managers may approve expenses under $X in their own department during business hours."* The models combine well. Always enforce **server-side, deny-by-default**.
 
 #### Common mistakes
-Client-side authorization only; role checks scattered through code; trusting a tenant ID from the client; long-lived bearer tokens in insecure storage. (See identity guidance in [07 §3](07-security-reliability-operations.md#3-authentication-authorization-and-identity).)
+Client-side authorization only; role checks scattered through code; trusting a tenant ID from the client; long-lived bearer tokens in insecure storage. Path-prefix middleware as the *only* authorization layer — every handler should assert its own session and permission, because API namespaces routinely fall outside page-path guards and locale or path-rewriting defeats prefix matching; client-side checks are UX only. Overloading a tenant-visible permission to also mean "platform operator" — operator permissions belong in a distinct namespace from tenant-admin permissions. (See identity and tenancy guidance in [07 §3](07-security-reliability-operations.md#3-authentication-authorization-and-identity).)
 
 ---
 
@@ -282,6 +282,32 @@ Reuse a pool of DB connections rather than one per request. Right-size the pool 
 
 ### 9.5 Transactions & Consistency
 Use ACID transactions for atomicity *within* a database; use sagas/eventual consistency *across* services ([02 §5.8](02-architecture-patterns.md#58-saga-distributed-transactions), [§6.6](02-architecture-patterns.md#66-consistency-models--cappacelc)). Keep transactions short; pick appropriate isolation levels; never hold a transaction across a network call; retry on deadlock.
+
+### 9.6 Enforce Invariants in the Datastore
+
+#### Summary
+Invariants the system's correctness depends on — a single "current" version per lineage, one account per external organization, append-only audit logs, single-use tokens, closed value sets — should be enforced by the database itself (unique and partial-unique indexes, CHECK constraints, foreign keys, triggers, revoked privileges), not only by application code.
+
+#### Problem it addresses
+Application-level enforcement alone fails in three recurring ways: under **concurrency** (check-then-act races — TOCTOU — let two requests both pass the same guard), under **alternative write paths** (admin consoles, bulk imports, background jobs, and ad-hoc scripts that never run the hand-written check), and under **bugs** in the single guard everything depends on. Each failure mode produces silent corruption discovered long after write time rather than a loud error at write time.
+
+#### Description
+Identify the invariants correctness depends on and express each in the store's own vocabulary: a partial unique index for "at most one current row per lineage"; a unique constraint on the external identifier for "one account per organization"; revoked `UPDATE`/`DELETE` privileges (or a rejecting trigger) for "append-only"; an atomic conditional update that checks affected rows for "single-use", instead of read-then-write; a CHECK constraint, enum type, or lookup-table foreign key for allowed values. Application code should still validate first — for clearer error messages and fewer round trips — but the constraint is the enforcement; the code is a courtesy. Where a datastore genuinely cannot express an invariant, record a documented waiver naming the compensating control (a serialized writer, a reconciliation job, a monitoring query) rather than silently relying on application discipline.
+
+#### Costs & trade-offs
+Constraints make some migrations and backfills harder: legacy data must be cleaned first, or the constraint staged in incrementally ([§9.3](#93-database-migrations)). Violations surface as low-level constraint errors that must be mapped to user-facing messages. Triggers add hidden behavior that needs documentation and tests. These costs are small against the alternative — silent corruption with no defense in depth.
+
+#### Common mistakes
+- The partial-unique index is missing, so a race or a buggy toggle leaves two rows both marked "current".
+- Check-then-insert instead of insert-and-handle-violation: both concurrent requests pass the check.
+- The audit table is writable by the same omnipotent credential that writes everything else, so "append-only" is a convention, not a control.
+- Enum CHECK constraints dropped during a refactor, quietly leaving a free-text column.
+
+#### Related patterns
+[03 §2.12 Make Illegal States Unrepresentable](03-software-design-principles.md#212-make-illegal-states-unrepresentable) is the same idea at the type-system level; this entry applies it at the persistence boundary, where concurrency and multiple writers live. [01 §8 Treat Data Ownership as an Architectural Decision](01-architecture-principles.md#8-treat-data-ownership-as-an-architectural-decision) — deciding *who may write* is part of the same design act.
+
+#### Sources
+Kleppmann, *Designing Data-Intensive Applications* (constraints and uniqueness under concurrency); vendor documentation on constraints (e.g., the PostgreSQL manual).
 
 ---
 

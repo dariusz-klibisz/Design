@@ -52,8 +52,10 @@ No diagram of trust boundaries; only considering external attackers; ignoring in
 #### Guidance
 Centralize identity integration where possible; enforce authorization **server-side** (or privileged-side for desktop); prefer least privilege; model permissions in business terms; use short-lived tokens; protect refresh tokens and sessions; log security-relevant decisions; test authorization paths explicitly.
 
+**Multi-tenant isolation.** Logical tenant isolation must not rest solely on hand-written per-request filters executed under an omnipotent credential (admin/service token): one missed or null-valued filter is a cross-tenant breach with zero defense in depth. Prefer a centralized tenancy guard (one audited helper that resolves tenant context for every data access), least-privilege credentials per access pattern, and row-level security where the datastore supports it. A null or absent tenant identifier must fail closed — never degrade into an empty filter value that matches everything.
+
 #### Common mistakes
-UI hides actions but the API allows them; role checks scattered through code; tenant ID trusted from the client; long-lived bearer tokens in insecure storage.
+UI hides actions but the API allows them; role checks scattered through code; tenant ID trusted from the client; long-lived bearer tokens in insecure storage; tenant filtering re-implemented by hand in each query under a shared omnipotent credential.
 
 (Web-specific mechanics — sessions vs JWT, OAuth/OIDC, RBAC vs ABAC — are in [04 §8](04-web-application-design.md#8-authentication--authorization).)
 

@@ -541,6 +541,9 @@ Invariants require atomic all-or-nothing consistency; compensation is legally/pr
 #### Common mistakes
 - Treating compensation as a technical rollback; no timeout/retry policy; saga state hidden in logs only; no manual repair path.
 
+#### Related patterns
+The same reasoning applies **in-process at small scale**: any multi-step write touching a non-transactional store — an object-storage upload plus a database insert, a delete-then-recreate link sync — is a miniature saga. Validate all inputs *before* the first destructive step, and order steps so the least damaging, most recoverable one comes last: insert before delete; upload the file before inserting the row that references it, with a compensating delete if the insert fails. See also [5.9 Transactional Outbox](#59-transactional-outbox) for the dual-write case.
+
 ---
 
 ### 5.9 Transactional Outbox
@@ -607,6 +610,8 @@ Simple CRUD; small systems; teams not ready for eventual consistency.
 
 #### Common mistakes
 - Applying CQRS globally instead of to selected bounded contexts; using it to compensate for poor indexing; not communicating read-model staleness to users.
+- Propagating only *some* state transitions to derived read models (search indexes, caches, rollup tables). Every state transition of the source entity must trigger propagation — lifecycle transitions (unpublish, deactivate, archive) are routinely forgotten, leaving orphaned documents that keep serving hidden data.
+- Writing the full-rebuild path and the incremental path as two separate implementations. They drift, and a full rebuild then silently regresses fields only the incremental path writes. Share one projection function between both (or add a parity test), and keep the rebuild path documented and rehearsed.
 
 ---
 

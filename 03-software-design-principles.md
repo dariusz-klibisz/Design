@@ -133,7 +133,7 @@ DRY is about knowledge/intent, not identical-looking text. **True duplication** 
 - **AHA / WET:** "Avoid Hasty Abstractions" — prefer a little duplication until the right abstraction is clear (Sandi Metz: *"Duplication is far cheaper than the wrong abstraction."*).
 
 #### When to apply DRY firmly
-Business rules that must stay consistent; security/authorization decisions; complex algorithms; protocol/schema definitions.
+Business rules that must stay consistent; security/authorization decisions; complex algorithms; protocol/schema definitions. Cross-process and cross-layer **contracts** — wire formats, enum value sets, scoring constants, queue names — deserve particular firmness: keep them in one shared module imported by all sides where the runtimes allow it. Where a contract *must* be duplicated across languages or runtimes (a type union mirrored by a database constraint and a set of translation keys), an automated parity test is the minimum bar — hand-copied mirrors always drift, and drift in trust-bearing mirrors such as permission tables is a security defect, not a cosmetic one.
 
 #### When to allow duplication
 Two pieces look similar but represent different business concepts; tests become unreadable from over-abstracted setup; a shared abstraction would need many flags/hooks.
