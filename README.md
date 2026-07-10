@@ -31,8 +31,9 @@ failure, and align technical trade-offs with real business needs.*
 | [`07-security-reliability-operations.md`](07-security-reliability-operations.md) | Secure SDLC/NIST SSDF, threat modeling, supply chain, SLOs/error budgets, observability, continuous delivery |
 | [`08-checklists-and-templates.md`](08-checklists-and-templates.md) | ADR template, review checklists, quality-attribute scenarios, selection rubrics, readiness reviews |
 | [`09-references.md`](09-references.md) | Authoritative sources by category, with how each informed the guide |
+| [`10-game-architecture.md`](10-game-architecture.md) | Sim/presentation separation, fixed-tick pipeline, command pattern for replay, ECS vs node composition, game state machines, event-driven communication, data-driven content pipeline, async-PvP netcode, game quality attributes |
 
-The `00`–`09` numbering is a stable ordering; treat the filenames as durable anchors
+The `00`–`10` numbering is a stable ordering; treat the filenames as durable anchors
 for cross-references.
 
 ---
@@ -49,6 +50,7 @@ Start with the **decision you need to make**, not a favorite pattern or technolo
   [`04`](04-web-application-design.md) / [`05`](05-desktop-application-design.md).
 - **Building a web app** → [`04`](04-web-application-design.md).
 - **Building a desktop app** → [`05`](05-desktop-application-design.md).
+- **Building a game / real-time simulation** → [`10`](10-game-architecture.md).
 - **Running software in production** → [`07`](07-security-reliability-operations.md).
 - **Turning a decision into a record** → [`08`](08-checklists-and-templates.md).
 

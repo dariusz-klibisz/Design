@@ -30,6 +30,7 @@ A practical process:
 - **Legacy modernization?** [`01`](01-architecture-principles.md) (evolutionary architecture, ADRs) + [`02`](02-architecture-patterns.md) (strangler fig, anti-corruption layer, modular monolith) + [`08`](08-checklists-and-templates.md) (modernization log).
 - **Security/compliance review?** [`07`](07-security-reliability-operations.md) (SSDF, threat modeling, supply chain) + [`04`](04-web-application-design.md) (web security) + [`05`](05-desktop-application-design.md) (sandboxing/IPC/updates) + [`08`](08-checklists-and-templates.md) checklists.
 - **Resolving a trade-off?** Use the [Decision Quick-Reference Matrix](#decision-quick-reference-matrix) below, then [`06`](06-quality-attributes-tradeoffs.md).
+- **Building a game / real-time simulation?** See [`10`](10-game-architecture.md), with [`01`](01-architecture-principles.md)/[`02`](02-architecture-patterns.md) for general structural patterns and [`03`](03-software-design-principles.md) for composition-over-inheritance and code-level design.
 
 Every entry is self-contained, so you can also jump directly to any principle.
 
@@ -49,6 +50,7 @@ Every entry is self-contained, so you can also jump directly to any principle.
 | **[07 — Security, Reliability, Operations & Delivery](07-security-reliability-operations.md)** | Secure SDLC/NIST SSDF, threat modeling, identity, supply chain, SLO/SLI/error budgets, observability, alerting, incident response, continuous delivery, trunk-based dev, feature flags, DB change management, cost, sustainability | Running software safely in production |
 | **[08 — Checklists & Templates](08-checklists-and-templates.md)** | ADR template, review checklists, quality-attribute scenarios, technology selection rubric, readiness checklists, build-vs-buy template, pattern selection matrix, operational readiness review | Turning principles into concrete decisions |
 | **[09 — References](09-references.md)** | Authoritative sources by category, with how each informed the guide; source-evaluation guidance | Verifying claims against primary sources |
+| **[10 — Game Architecture](10-game-architecture.md)** | Sim/presentation separation, fixed-tick pipeline, command pattern for replay, ECS vs node composition, game state machines, event-driven communication, data-driven content pipeline, async-PvP netcode patterns, game-specific quality attributes | Architecting a real-time or turn-based game/simulation |
 
 ---
 
@@ -116,6 +118,18 @@ Jump to the right section based on the question you're trying to answer.
 | Secure a desktop app (incl. Electron/Tauri)? | [05 §9](05-desktop-application-design.md#9-desktop-security) |
 | Startup/memory/battery/resource use? | [05 §10](05-desktop-application-design.md#10-performance--resource-use) |
 | Packaging, code signing, auto-update? | [05 §11](05-desktop-application-design.md#11-packaging-distribution--updates) |
+
+### Building Games
+
+| Question | Go to |
+|---|---|
+| How do I keep simulation reproducible/testable? | [10 §1](10-game-architecture.md#1-simulationpresentation-separation), [10 §2](10-game-architecture.md#2-fixed-tick-update-pipeline) |
+| How do I support replay / deterministic multiplayer? | [10 §3](10-game-architecture.md#3-command-pattern-for-deterministic-replay) |
+| ECS or scene-graph/node composition? | [10 §4](10-game-architecture.md#4-entity-modeling-ecs-vs-scene-graphnode-composition) |
+| How do I model combat/AI/UI modes? | [10 §5](10-game-architecture.md#5-state-machines-for-game-logic) |
+| How should content (items/skills/enemies) be authored? | [10 §6](10-game-architecture.md#6-data-driven-content-pipeline) |
+| Async/snapshot-based PvP architecture? | [10 §8](10-game-architecture.md#8-netcode-patterns-for-asynchronous--replay-based-multiplayer) |
+| What quality attributes does a game add? | [10 §9](10-game-architecture.md#9-game-specific-quality-attributes) |
 
 ### Resolving Trade-offs & Operations
 
@@ -219,10 +233,12 @@ flowchart TB
 | **Dependency Injection (DI)** | Supplying dependencies from outside rather than constructing them internally |
 | **DORA metrics** | Deployment frequency, lead time, change failure rate, time to restore |
 | **DRY** | Don't Repeat Yourself |
+| **ECS** | Entity-Component-System — data-oriented game object model: entities are IDs, components are data, systems operate over component arrays ([10 §4](10-game-architecture.md#4-entity-modeling-ecs-vs-scene-graphnode-composition)) |
 | **Electron** | Desktop framework bundling Chromium + Node.js; web UI, large footprint |
 | **Error budget** | Allowed unreliability (1 − SLO), spent on releases/risk |
 | **Event Sourcing** | Persisting state as an append-only sequence of events |
 | **Fitness function** | Automated test that verifies an architectural characteristic |
+| **FSM** | Finite State Machine — explicit states + legal transitions modeling mutually-exclusive modes ([10 §5](10-game-architecture.md#5-state-machines-for-game-logic)) |
 | **GRASP** | General Responsibility Assignment Software Patterns |
 | **HATEOAS** | Hypermedia As The Engine Of Application State (REST maturity Level 3) |
 | **Hexagonal / Ports & Adapters** | Architecture isolating a domain core behind ports/adapters |

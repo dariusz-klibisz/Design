@@ -120,6 +120,25 @@ This reference synthesizes established, widely recognized sources in software ar
 
 ---
 
+## Game Architecture
+
+- **Glenn Fiedler** — "Fix Your Timestep!", "Deterministic Lockstep", "Floating
+  Point Determinism" — https://gafferongames.com/
+- **Robert Nystrom** — *Game Programming Patterns* (Game Loop, Update Method,
+  Command, State, Observer, Event Queue, Component, Type Object, Double
+  Buffer) — https://gameprogrammingpatterns.com/
+- **Adam Martin** — "Entity Systems are the future of MMOG development"
+  (ECS rationale).
+- **Damian Isla** — "Handling Complexity in the Halo 2 AI" (GDC talk;
+  behavior trees).
+
+*Used for:* sim/presentation separation, fixed-tick update pipelines, the
+command pattern for deterministic replay, ECS vs scene-graph/node composition,
+game state machines, and async-PvP netcode-as-deterministic-replay reasoning
+in [`10`](10-game-architecture.md).
+
+---
+
 ## Source Evaluation Notes
 
 The strongest sources are **vendor/operator frameworks and standards bodies** (Well-Architected frameworks, NIST SSDF, OWASP ASVS, WCAG, Google SRE) because they are maintained and reflect production experience across many systems — but they are intentionally broad. **Practitioner books and pattern catalogs** (Fowler, Newman, Kleppmann, Evans, GoF) are best for trade-off language and failure modes.
