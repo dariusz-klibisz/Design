@@ -4,18 +4,19 @@ Real-time and turn-based games share an architectural concern general applicatio
 design rarely centers: a **simulation** that must run correctly, repeatably, and
 fast, decoupled from however it is displayed. This file covers the patterns that
 follow from that — sim/presentation separation, fixed-tick update pipelines, the
-command pattern for deterministic replay, entity-modeling choices (ECS vs
-scene-graph/node composition), game state machines, event-driven communication,
-data-driven content pipelines, and the netcode patterns that extend a
-deterministic simulation to multiplayer — plus the quality attributes a game adds
-to the general catalog in [`06`](06-quality-attributes-tradeoffs.md).
+command pattern for deterministic replay, determinism requirements, entity-modeling
+choices (ECS vs scene-graph/node composition), game state machines and AI decision
+architectures, data-driven content and procedural generation, event-driven
+communication, save persistence, the netcode patterns that extend a simulation to
+multiplayer, performance and testing disciplines — plus the quality attributes a
+game adds to the general catalog in [`06`](06-quality-attributes-tradeoffs.md).
 
 This file is **technology- and engine-agnostic**, consistent with the rest of
-this reference. Concrete engine mechanics (e.g. Godot's node lifecycle,
-GDScript's threading model) live in the Coding library's
-[`languages/gdscript.md`](../Coding/languages/gdscript.md) and
-[`13-game-runtime-and-determinism.md`](../Coding/13-game-runtime-and-determinism.md)
-— this file covers the structural decisions that hold regardless of engine.
+this reference: it covers the structural decisions that hold regardless of engine.
+Concrete engine mechanics (node lifecycles, scripting-language specifics, engine
+APIs) are deliberately out of scope here; for one engine's mapping of these
+patterns, see the clearly-marked, time-sensitive
+[`11-godot-engine-notes.md`](11-godot-engine-notes.md).
 
 For the general architectural vocabulary (layering, coupling/cohesion, event-
 driven architecture) this file builds on, see [`01`](01-architecture-principles.md),
@@ -83,15 +84,14 @@ deterministic multiplayer, or automated balance testing is a requirement.
 #### When not to use
 A one-off game jam prototype with no reproducibility, replay, or offline-calc
 requirement may reasonably skip the discipline to move faster — but retrofitting
-it later is a rewrite, not a patch (see §9).
+it later is a rewrite, not a patch (see §19).
 
 #### Decision criteria
 - Does any feature require the simulation to run without rendering (offline
   calc, server verification, automated testing)? If yes, this is required, not
   optional.
 - Does the simulation need to be reproduced exactly later (replay, "what would
-  have happened")? If yes, the event log and determinism (§8, and the Coding
-  library's [determinism doc](../Coding/13-game-runtime-and-determinism.md))
+  have happened")? If yes, the event log and the determinism requirements (§4)
   are load-bearing together.
 
 #### Common mistakes
@@ -100,7 +100,7 @@ it later is a rewrite, not a patch (see §9).
   — this silently couples simulation correctness to frame timing.
 - Presentation re-deriving "what happened" from a before/after state diff
   instead of consuming explicit events — ambiguous when multiple effects
-  resolve in the same tick (see §3).
+  resolve in the same tick (see §3, §10).
 - Treating the separation as a one-time refactor rather than an enforced
   boundary — a single addition of a render-dependent shortcut months later
   reintroduces the coupling.
@@ -108,7 +108,7 @@ it later is a rewrite, not a patch (see §9).
 #### Related patterns
 Hexagonal Architecture / Ports & Adapters ([`02` §3.3](02-architecture-patterns.md#33-hexagonal-architecture-ports--adapters))
 — the simulation core is the "domain," presentation is a driven adapter. Command
-pattern (§3). Fixed-tick pipeline (§2).
+pattern (§3). Fixed-tick pipeline (§2). Determinism requirements (§4).
 
 #### Sources
 Robert Nystrom, *Game Programming Patterns* — Update Method,
@@ -146,17 +146,20 @@ motion even though the underlying state only changes at the fixed tick rate.
 
 #### Benefits
 - Simulation results are reproducible regardless of display frame rate or
-  hardware speed — a prerequisite for determinism (§8).
+  hardware speed — a prerequisite for determinism (§4).
 - Decouples "how often do we simulate" from "how often do we render," so each
   can be tuned independently for correctness vs smoothness/battery.
 - A stalled or dropped frame doesn't desynchronize game time from real time.
 
 #### Costs & trade-offs
 - Requires explicit interpolation/extrapolation work in the render layer to
-  avoid visible stepping at low tick rates.
+  avoid visible stepping at low tick rates (interpolation also displays the
+  simulation slightly *in the past* — usually imperceptible, but a real input-
+  latency cost for twitch-sensitive games).
 - An unbounded catch-up loop after a long stall ("spiral of death") can itself
-  blow the frame budget — must be capped, with large gaps handled as an
-  explicit batch pass instead (see §5, offline progress).
+  blow the frame budget — must be capped, with large gaps (e.g. resuming after
+  hours away) handled as an explicit headless batch computation instead (§1),
+  not by looping millions of render-interleaved ticks.
 
 #### When to use
 Any simulation whose outcome must be reproducible, tested, replayed, or
@@ -184,7 +187,7 @@ purely decorative with no state consequence? Either tick rate is fine.
 #### Related patterns
 Simulation/presentation separation (§1); double buffering (keep a previous and
 current simulation state for interpolation without mutating authoritative
-state).
+state); determinism requirements (§4).
 
 #### Sources
 Glenn Fiedler, "Fix Your Timestep!"; Robert Nystrom, *Game Programming
@@ -210,17 +213,17 @@ and side effects scattered across the codebase.
 ```
 Input source           Command                Simulation
 (player, AI, script) ──▶ {type: "CastSkill",  ──▶ applied in
-                          actor: hero_3,           tick order
+                          actor: unit_3,           tick order
                           skill: "Fireball",
                           target: cell(4,2)}
 ```
-Every action a hero, an enemy AI, or a scripted Tactics/automation rule wants
-to take is expressed as a command: a small, serializable value describing the
-*intent* (who, what, where) not the *effect*. The simulation core consumes an
-ordered queue of commands per tick and applies them deterministically. A full
-match/session replay is then just the recorded command list plus the initial
-seed — re-running the same commands through the same simulation reproduces the
-same result exactly (given the determinism practices in §8).
+Every action a player character, an enemy AI, or a scripted automation rule
+wants to take is expressed as a command: a small, serializable value describing
+the *intent* (who, what, where) not the *effect*. The simulation core consumes
+an ordered queue of commands per tick and applies them deterministically. A
+full match/session replay is then just the recorded command list plus the
+initial seed — re-running the same commands through the same simulation
+reproduces the same result exactly (given the determinism requirements in §4).
 
 #### Benefits
 - A replay, a save file's "how did we get here," and a PvP verification pass
@@ -252,7 +255,7 @@ but see §1's note on retrofit cost.
 #### Decision criteria
 Will this game need to prove/reproduce "what happened" later (replay, PvP
 fairness, offline-progress fidelity, bug reports)? If yes, commands are the
-concrete mechanism that makes §1 and §8 actually implementable, not just
+concrete mechanism that makes §1 and §4 actually implementable, not just
 aspirational.
 
 #### Common mistakes
@@ -269,8 +272,8 @@ aspirational.
 #### Related patterns
 Event Sourcing ([`02` §6.4](02-architecture-patterns.md#64-event-sourcing)) —
 the same "log of what happened, replay to derive state" idea applied to game
-commands specifically; simulation/presentation separation (§1); deterministic
-update ordering (§8).
+commands specifically; simulation/presentation separation (§1); determinism
+requirements (§4).
 
 #### Sources
 Robert Nystrom, *Game Programming Patterns* — Command; Glenn Fiedler,
@@ -278,7 +281,115 @@ Robert Nystrom, *Game Programming Patterns* — Command; Glenn Fiedler,
 
 ---
 
-## 4. Entity Modeling: ECS vs Scene-Graph/Node Composition
+## 4. Determinism Requirements
+
+#### Summary
+For a simulation to be **deterministic** — same initial state + same ordered
+inputs + same seed → bit-identical output, every run — a set of concrete
+engineering rules must hold everywhere inside the simulation kernel. Determinism
+is a property of the *whole* kernel: one violation anywhere silently breaks it.
+
+#### Problem it addresses
+Replay (§3), offline recomputation (§1), lockstep/rollback multiplayer (§13),
+and independently-verifiable PvP results (§12) all assume the simulation can be
+re-run elsewhere/later with an identical outcome. Non-deterministic habits —
+unseeded randomness, hash-order iteration, wall-clock reads, frame-rate-coupled
+math — are each *individually* invisible in normal play and only surface as
+diverging replays, desyncs, or "impossible" verification failures much later,
+when the fix is a kernel audit, not a patch.
+
+#### Description / How it works
+The load-bearing rules:
+
+1. **Owned, seeded randomness.** All randomness inside the simulation comes
+   from explicitly-seeded PRNG streams owned by the simulation, with seeds
+   recorded alongside the command log. Use separate streams per concern
+   (combat rolls vs. loot vs. generation) so adding a draw in one system
+   doesn't shift every subsequent draw in another. Presentation-layer
+   randomness (particle jitter, cosmetic variation) uses its *own* generator,
+   never the simulation's.
+2. **Explicit, stable iteration order.** Never iterate hash-map/set-native
+   order inside the kernel; iterate sorted keys, insertion-ordered lists, or
+   explicit priority orderings. Two effects that could resolve in either order
+   (e.g. a mutual kill) must have a documented resolution order.
+3. **No ambient inputs.** No wall-clock time, frame delta, locale, environment
+   state, or uninitialized memory feeds the simulation — only ticks (§2) and
+   commands (§3).
+4. **Floating-point caution.** IEEE 754 results depend on operation order,
+   compiler optimizations (e.g. FMA contraction), math-library implementations,
+   and platform/architecture. Same-binary-same-machine replay is achievable
+   with care; **cross-platform bit-exactness with floats is hard and has no
+   general solution**. Production deterministic engines commonly use integer
+   or fixed-point math in the simulation kernel instead; alternatives are
+   verifying only on a canonical platform/binary, or accepting per-platform
+   authority.
+5. **State checksums.** Hash the full simulation state every N ticks and record
+   it with the replay; on re-run, compare. This converts "mystery desync weeks
+   later" into "divergence first appeared at tick 4 231," which is debuggable.
+6. **Deterministic dependencies only.** Third-party physics/pathfinding
+   libraries are frequently *not* deterministic (internal RNG, threading,
+   platform-specific SIMD paths) — either verify and pin them, or keep them
+   out of the kernel and use them only for presentation.
+
+#### Benefits
+- Replay, offline recompute, PvP verification, and lockstep/rollback netcode
+  all become the *same* trusted mechanism rather than four separate systems.
+- Bug reports can ship as a seed + command log that reproduces exactly.
+- Determinism tests (§17) catch whole classes of logic bugs (order-dependence,
+  uninitialized state) that ordinary unit tests miss.
+
+#### Costs & trade-offs
+- Fixed-point/integer math is less ergonomic than floats and needs range/
+  precision design; retrofitting it into a float-based kernel is a rewrite.
+- Stable iteration and per-concern RNG streams add bookkeeping and forbid some
+  convenient data structures inside the kernel.
+- Determinism constrains parallelism: multithreading the kernel requires
+  deterministic scheduling/reduction, which is significant extra work.
+
+#### When to use
+Whenever any of §1's headless use cases, §3's replay, §12's verification, or
+§13's lockstep/rollback models is a requirement. Adopt from the first line of
+simulation code — this is the canonical "cheap now, prohibitive later" property.
+
+#### When not to use
+A purely cosmetic system, or a single-player game with no replay/recompute/
+verification surface, doesn't need bit-exactness — approximate reproducibility
+(same seed → same *content*) may be enough, at much lower cost.
+
+#### Decision criteria
+- Must two independent runs produce *bit-identical* results (verification,
+  lockstep, rollback)? Full rules 1–6 apply.
+- Must results merely be *plausibly reproducible* (debugging convenience)?
+  Rules 1–3 alone give most of the value.
+- Will verification re-runs happen on different hardware/OS/builds than the
+  original run? Rule 4 forces a decision now: integer/fixed-point kernel, or
+  canonical-platform verification.
+
+#### Common mistakes
+- One shared global RNG used by both simulation and presentation — a new
+  particle effect changes combat outcomes.
+- Iterating a hash map "because it's the natural container," producing results
+  that differ between runs, platforms, or language versions.
+- Assuming float determinism because tests pass on one machine — divergence
+  appears only across compilers/architectures/optimization levels.
+- Trusting an engine's built-in physics inside the kernel without verifying
+  its determinism guarantees (most engine physics is not cross-platform
+  deterministic, and often not even run-to-run deterministic).
+
+#### Related patterns
+Fixed-tick pipeline (§2) — the timing half of determinism; command pattern
+(§3) — the input half; async PvP verification (§12) and lockstep/rollback
+(§13) — the consumers; golden-replay testing (§17) — the enforcement.
+
+#### Sources
+Glenn Fiedler, "Deterministic Lockstep" and "Floating Point Determinism";
+GGPO rollback SDK (determinism as the precondition for rollback netcode);
+production deterministic-simulation engines using fixed-point math for
+cross-platform consistency.
+
+---
+
+## 5. Entity Modeling: ECS vs Scene-Graph/Node Composition
 
 #### Summary
 Two dominant ways to structure game objects: **Entity-Component-System (ECS)** —
@@ -288,7 +399,7 @@ oriented, each game object is a tree of composed nodes/components with
 behavior attached directly.
 
 #### Problem it addresses
-Game objects need both varied behavior (a hero has stats, skills, status
+Game objects need both varied behavior (a character has stats, skills, status
 effects, AI, rendering) and, at scale, performance (iterating thousands of
 entities' movement/combat logic per tick). Deep inheritance hierarchies
 ("Unit → Hero → RangedHero → ArcherHero") become rigid and don't compose well;
@@ -311,16 +422,27 @@ inheritance chain (a `HealthComponent` node, a `StatusEffectComponent` node, an
 `AIComponent` node, composed under an `Enemy` scene) — favoring **composition
 over inheritance** ([`03` §2.6](03-software-design-principles.md#26-composition-over-inheritance))
 within the engine's native object/scene model rather than adopting a separate
-ECS data model.
+ECS data model. Note the terminology trap: engine "component" systems where
+components carry behavior (Unity `GameObject`s, engine node trees) are
+**entity-component (EC) frameworks**, not ECS — the defining ECS property is
+the separation of data (components) from behavior (systems).
+
+**ECS implementation families** (relevant when adopting or evaluating an ECS
+library): *archetype/table-based* storage (entities grouped in tables by
+component set — fastest bulk queries/iteration; used by most current
+large-scale implementations) vs *sparse-set* storage (per-component sparse
+arrays — fastest add/remove of components). The trade-off is iteration speed
+vs. structural-change speed; both are mainstream in production engines and
+games.
 
 #### Benefits
 
 *ECS:* Excellent cache locality and bulk-iteration performance at high entity
-counts (thousands+); trivially easy to add a new cross-cutting system without
-touching entity definitions; naturally data-oriented, which pairs well with
-data-driven content (§6) and with deterministic, order-explicit iteration (the
-Coding library's [determinism doc](../Coding/13-game-runtime-and-determinism.md)
-§10 requires exactly this kind of explicit, stable iteration order).
+counts (thousands+), following data-oriented design (§14); trivially easy to
+add a new cross-cutting system without touching entity definitions; naturally
+data-oriented, which pairs well with data-driven content (§8) and with
+deterministic, order-explicit iteration (§4 rule 2 requires exactly this kind
+of explicit, stable iteration order).
 
 *Scene-graph/node composition:* Matches most game engines' native authoring
 tools directly (visual scene editors, inspector-driven composition), so
@@ -332,7 +454,8 @@ to-moderate entity counts; less architectural machinery to build/maintain.
 *ECS:* More upfront architecture (component storage, system scheduling); less
 natural fit with an engine's built-in scene editor/inspector workflow unless
 the engine has first-class ECS support; can feel like over-engineering below
-the entity-count threshold where its performance benefit matters.
+the entity-count threshold where its performance benefit matters. Writing a
+custom ECS is easy to start and hard to make competitive with mature libraries.
 
 *Scene-graph/node composition:* Node-per-entity overhead (tree traversal,
 per-node dispatch) scales worse at very high entity counts than tightly-packed
@@ -344,13 +467,15 @@ if composition discipline lapses.
 *ECS:* Large entity counts with performance-critical bulk updates (large-scale
 battles, particle-like swarms, colony/city simulations); when the same set of
 cross-cutting systems (movement, damage, status) must apply uniformly across
-very different entity kinds.
+very different entity kinds. Production examples span shooters, city builders,
+and large-scale voxel/sandbox games.
 
-*Scene-graph/node composition:* Small-to-moderate entity counts (a squad-based
-combat game with a handful of heroes and a bounded per-fight enemy count is
-solidly in this range); when leveraging the engine's native editor/authoring
-tools for composition is valuable; when team size/expertise favors the
-engine's default object model over building/learning a separate ECS layer.
+*Scene-graph/node composition:* Small-to-moderate entity counts (a party-based
+combat game with a handful of player characters and a bounded per-fight enemy
+count is solidly in this range); when leveraging the engine's native
+editor/authoring tools for composition is valuable; when team size/expertise
+favors the engine's default object model over building/learning a separate ECS
+layer.
 
 #### When not to use
 ECS is not worth its architectural cost for entity counts in the tens (not
@@ -370,6 +495,8 @@ is chosen.
 - Is bulk, uniform, cross-cutting iteration (damage resolution across every
   active entity, every tick) the dominant cost? Favors ECS's cache-friendly
   layout.
+- If adopting ECS: prefer a mature library over a bespoke implementation
+  unless the project's requirements are genuinely unusual.
 
 #### Common mistakes
 - Building a full custom ECS for a small, bounded entity count "because it's
@@ -381,21 +508,23 @@ is chosen.
 - In either model, iterating entities in a non-deterministic order (hash-map/
   set-native order) when the simulation must be reproducible — an entity-
   modeling choice does not exempt the system from the ordering discipline in
-  the Coding library's [determinism doc](../Coding/13-game-runtime-and-determinism.md) §10.
+  §4.
 
 #### Related patterns
 Composition over inheritance ([`03` §2.6](03-software-design-principles.md#26-composition-over-inheritance));
-data-driven content pipeline (§6); deterministic update ordering (external:
-Coding library §10).
+data-driven content pipeline (§8); data locality (§14); deterministic update
+ordering (§4).
 
 #### Sources
-Robert Nystrom, *Game Programming Patterns* — Component; general ECS
-literature (Adam Martin, "Entity Systems are the future of MMOG development");
-Sandi Metz on composition/inheritance trade-offs.
+Robert Nystrom, *Game Programming Patterns* — Component; Adam Martin, "Entity
+Systems are the future of MMOG development"; Scott Bilas, "A Data-Driven Game
+Object System" (GDC 2002); Sander Mertens, *ECS FAQ* (implementation families,
+EC-vs-ECS distinction); Blizzard, "Overwatch Gameplay Architecture and Netcode"
+(GDC 2017).
 
 ---
 
-## 5. State Machines for Game Logic
+## 6. State Machines for Game Logic
 
 #### Summary
 Model discrete-mode game logic — combat phases, AI behavior, UI flow, a
@@ -403,8 +532,8 @@ character's action state — as explicit **finite state machines (FSMs)** or
 **hierarchical/behavior-tree variants**, rather than networks of boolean flags.
 
 #### Problem it addresses
-"Is the hero currently casting, stunned, dead, or channeling?" answered by a
-scatter of independent booleans (`is_casting`, `is_stunned`, `is_dead`,
+"Is the character currently casting, stunned, dead, or channeling?" answered by
+a scatter of independent booleans (`is_casting`, `is_stunned`, `is_dead`,
 `is_channeling`) admits invalid combinations (stunned *and* casting) and grows
 combinatorially unreadable. A state machine makes the valid states and
 transitions explicit and enforces that only one state (or a well-defined
@@ -424,7 +553,8 @@ state machines** nest states (e.g. "Alive" containing "Idle/Casting/Moving,"
 with "Dead" as a sibling top-level state) so common transitions (any
 Alive-substate → Dead) are defined once. **Behavior trees** generalize this for
 AI decision-making, composing selector/sequence/condition nodes into more
-flexible branching logic than a flat FSM handles well.
+flexible branching logic than a flat FSM handles well (see §7 for the wider
+AI-architecture menu).
 
 #### Benefits
 - Invalid state combinations become structurally impossible rather than a bug
@@ -446,7 +576,7 @@ flexible branching logic than a flat FSM handles well.
 
 #### When to use
 Any entity or system with mutually-exclusive modes and meaningful transition
-logic: combat action state, AI behavior, UI screen flow, an automation/Tactics
+logic: combat action state, AI behavior, UI screen flow, a scripted automation
 rule's own evaluation state if it has one. Behavior trees specifically for AI
 decision-making richer than a simple mode switch (enemy AI choosing among
 several viable actions based on conditions).
@@ -460,8 +590,8 @@ frame — that would be over-engineering a light switch.
 Are there ≥3 mutually exclusive modes, or does one flag's value change what
 transitions are legal for another? If yes, model it as a state machine. Is the
 decision logic closer to "pick the best of several viable actions given
-conditions" (AI) than "which single mode am I in"? Favor a behavior tree over a
-flat FSM.
+conditions" (AI) than "which single mode am I in"? Favor a behavior tree or one
+of the decision architectures in §7 over a flat FSM.
 
 #### Common mistakes
 - Modeling orthogonal, simultaneously-true concerns (multiple simultaneous
@@ -474,28 +604,136 @@ flat FSM.
 
 #### Related patterns
 Command pattern (§3) — commands are natural transition triggers; state design
-pattern (GoF); behavior trees (AI-specific generalization).
+pattern (GoF); AI decision architectures (§7).
 
 #### Sources
 Robert Nystrom, *Game Programming Patterns* — State; GoF *Design Patterns* —
-State pattern; behavior-tree literature (Damian Isla, "Handling Complexity in
-the Halo 2 AI").
+State pattern; Damian Isla, "Handling Complexity in the Halo 2 AI" (GDC 2005).
 
 ---
 
-## 6. Data-Driven Content Pipeline
+## 7. Game AI Decision Architectures
 
 #### Summary
-Author game content — classes, skills, items, affixes, enemies, level/rift
+Beyond FSMs and behavior trees (§6), game AI has a small standard menu of
+decision architectures — **utility AI**, **planners (GOAP/HTN)**, **influence
+maps**, **steering behaviors**, and **search (MCTS)** — each fitting a
+different shape of decision problem. Choosing the architecture to match the
+problem shape matters more than any single technique.
+
+#### Problem it addresses
+As AI requirements grow ("pick the best target considering health, range,
+threat, and role," "coordinate a group," "plan a multi-step action sequence"),
+a flat FSM or hand-tuned if/else cascade becomes unmaintainable: every new
+consideration multiplies branches, and tuning one behavior breaks another.
+
+#### Description / How it works
+- **Behavior trees (BT):** hierarchical composition of selector/sequence/
+  condition/action nodes; the industry default for reactive character behavior.
+  Strong for authorable, designer-readable reactive logic; weak at weighing
+  many continuous factors.
+- **Utility AI:** score every candidate action from weighted *considerations*
+  (normalized curves over inputs like distance, health, cooldowns) and pick the
+  best (or weighted-random among top scorers). Strong when many factors trade
+  off continuously; scoring curves are data (§8) and can be tuned/tested in
+  bulk. Weak at multi-step lookahead.
+- **Planners (GOAP / HTN):** the AI is given goals and a library of actions
+  with preconditions/effects (GOAP) or hierarchically-decomposed tasks (HTN);
+  a planner searches for an action sequence at runtime. Strong for emergent
+  multi-step behavior with less authoring of explicit transitions; costs
+  runtime search and is harder to predict/debug.
+- **Influence maps:** spatial grids/fields aggregating threat, control, or
+  desirability; queried by any of the above for positional decisions ("where
+  is safe," "where to flank"). A shared spatial-reasoning substrate, not a
+  decision-maker by itself.
+- **Steering behaviors:** local movement decisions (seek/flee/avoid/flock,
+  context steering, flow fields for crowds) — the movement layer under
+  whatever decision layer sits above.
+- **Search (MCTS/minimax):** for discrete, rule-complete decision spaces
+  (turn-based tactics, card games) where simulating candidate futures is
+  feasible — often using the same deterministic simulation core (§1, §4) as a
+  lookahead engine.
+
+These compose: a typical production stack is BT or utility for action
+selection, a planner for long-horizon goals where needed, influence maps for
+spatial queries, and steering underneath for movement.
+
+#### Benefits
+- Matching architecture to problem shape keeps each behavior small, testable,
+  and independently tunable.
+- Utility considerations and BT structures can live as data (§8), enabling
+  designer iteration and bulk balance testing without code changes.
+- A deterministic sim core (§4) lets search-based AI and automated balance
+  agents reuse the real rules rather than a parallel approximation.
+
+#### Costs & trade-offs
+- Each additional architecture is a competence the team must maintain; a
+  mixed stack is powerful but harder to reason about than one mediocre-but-
+  uniform approach.
+- Planners and search trade authoring effort for runtime cost and debugging
+  opacity ("why did it choose that?" needs dedicated tooling/logging).
+- Utility AI's flexibility is also its failure mode: badly-normalized curves
+  produce confident nonsense that is hard to spot in review.
+
+#### When to use
+- ≤ a handful of discrete modes → FSM (§6).
+- Reactive, authorable character behavior → BT.
+- Many continuously-varying considerations → utility AI.
+- Multi-step goal pursuit with a rich action vocabulary → GOAP/HTN.
+- Positional/territorial reasoning → influence maps feeding any of the above.
+- Rule-complete turn-based decisions with a fast sim → search/MCTS.
+
+#### When not to use
+Don't introduce a planner or search where a BT or utility scorer meets the
+need — runtime search is the most expensive and least predictable option and
+should be pulled in by problem shape, not novelty.
+
+#### Decision criteria
+Ask "what does the AI need to weigh?" — discrete modes (FSM), reactive
+priorities (BT), continuous trade-offs (utility), action sequencing (planner),
+space (influence maps), futures (search). If the answer is "several," compose;
+the layers have well-understood seams (decision → movement → animation).
+
+#### Common mistakes
+- Scoring functions mixing unnormalized units (raw distance vs. a 0–1 health
+  fraction), silently dominating the decision.
+- Planner action libraries with under-specified preconditions, producing
+  legal-but-absurd plans.
+- AI reading presentation-layer state (animation progress, screen positions)
+  for decisions — the §1 boundary applies to AI as much as to gameplay logic.
+- No decision logging/visualization — any architecture beyond an FSM is
+  effectively undebuggable without tooling that answers "why."
+
+#### Related patterns
+State machines (§6); data-driven content (§8) for tunable AI parameters;
+determinism (§4) for search-based AI and replay-stable behavior; automated
+balance agents (§17).
+
+#### Sources
+*Game AI Pro* series (free online): "Behavior Selection Algorithms: An
+Overview"; "An Introduction to Utility Theory" (Graham); "The Behavior Tree
+Starter Kit" (Champandard & Dunstan); "Exploring HTN Planners through Example"
+(Humphreys); "Modular Tactical Influence Maps" (Mark); "Context Steering"
+(Fray); "Crowd Pathfinding and Steering Using Flow Field Tiles" (Emerson);
+"Monte Carlo Tree Search and Related Algorithms for Games" (Sturtevant).
+Jeff Orkin's GOAP work (F.E.A.R.); Damian Isla, "Handling Complexity in the
+Halo 2 AI" (GDC 2005).
+
+---
+
+## 8. Data-Driven Content Pipeline
+
+#### Summary
+Author game content — classes, skills, items, affixes, enemies, level/difficulty
 modifiers — as **external data**, loaded and interpreted by generic code,
 rather than encoding each piece of content as bespoke source code.
 
 #### Problem it addresses
 A game whose content scales primarily through variety and volume (many item
-affixes, many skills, procedurally-recruited hero traits, endlessly-scaling
-rift modifiers) cannot sustainably require a code change and a rebuild for
-every new piece of content — content velocity and, for this project
-specifically, moddability both depend on content living outside compiled code.
+affixes, many skills, procedurally generated character traits, endlessly-scaling
+difficulty modifiers) cannot sustainably require a code change and a rebuild for
+every new piece of content — content velocity and, where moddability is a goal,
+third-party content both depend on content living outside compiled code.
 
 #### Description / How it works
 ```
@@ -538,9 +776,9 @@ than "every item."
 
 #### When to use
 Any content category with many instances following a common shape (items,
-skills, affixes, enemies, procedurally-generated content, rift/dungeon
+skills, affixes, enemies, procedurally-generated content, dungeon/difficulty
 modifiers) — which describes essentially every content axis in a deep-
-itemization, procedurally-recruited-hero design.
+itemization, procedural-generation-heavy design.
 
 #### When not to use
 A one-off, singular piece of bespoke logic (a unique final-boss mechanic that
@@ -557,29 +795,121 @@ simpler and honest about that.
 - Loading untrusted external data (community mods, imported content) as if it
   were trusted, including any data shape that can reference or execute code —
   a moddability feature is a security boundary; restrict external data to
-  plain, schema-validated, non-executable formats (see the Coding library's
-  [GDScript security rules](../Coding/languages/gdscript.md#12-security) for
-  the concrete engine-level version of this).
+  plain, schema-validated, non-executable formats (many engines' native
+  serialized-object formats *can* embed scripts and are therefore unsafe for
+  untrusted content).
 - No schema versioning — a content-format change breaks every existing data
   file with no migration path, and breaks save compatibility for players whose
-  save references now-invalid content IDs.
+  save references now-invalid content IDs (§11).
 - Business logic creeping into "data" as ad hoc scripting/expression strings
   evaluated unsafely, effectively becoming an unaudited second scripting
   language.
 
 #### Related patterns
-Configuration over code (general software design); the Coding library's
-[GDScript `Resource`-as-data pattern](../Coding/languages/gdscript.md#7-exports-resources--scene-composition)
-for the concrete Godot mechanism; ECS's component-as-data model (§4) pairs
-naturally with data-driven content.
+Configuration over code (general software design); ECS's component-as-data
+model (§5) pairs naturally with data-driven content; procedural generation
+(§9) consumes these schemas; save versioning (§11) depends on stable content
+IDs.
 
 #### Sources
 General data-driven-design literature in game development; Robert Nystrom,
-*Game Programming Patterns* — Type Object.
+*Game Programming Patterns* — Type Object; Scott Bilas, "A Data-Driven Game
+Object System" (GDC 2002).
 
 ---
 
-## 7. Communication: Events and State Ownership in Games
+## 9. Procedural Generation Architecture
+
+#### Summary
+Structure procedural content generation as **pure functions of (seed,
+parameters)** organized in an explicit **seed hierarchy**, with generated
+output validated against the same schemas as authored content (§8) — so
+generation is reproducible, testable, and mixable with hand-authored content.
+
+#### Problem it addresses
+Ad hoc generation — code sprinkling `random()` calls as it builds a level,
+item, or character — produces content that can never be reproduced (bug
+reports reference content nobody can see again), can't be regression-tested,
+and silently changes whenever any code path adds or removes a random draw.
+
+#### Description / How it works
+```
+world_seed
+  ├── dungeon_stream(seed_d)  ──▶ layout, rooms, connections
+  ├── loot_stream(seed_l)     ──▶ item rolls, affixes
+  └── unit_stream(seed_u)     ──▶ recruits, traits, names
+```
+- **Seed hierarchy:** a root seed deterministically derives per-subsystem
+  streams (§4 rule 1). Generating one more item never shifts dungeon layout;
+  each stream's consumption is isolated.
+- **Generation as a pure function:** `generate(seed, params) → content`, with
+  no hidden inputs. The same (seed, params, generator version) always yields
+  the same content, so a save or replay needs to store only those three
+  things, not the generated output (though caching output is a valid
+  space/time trade).
+- **Constraints and validation:** generated output passes the same
+  schema/invariant validation as authored data (§8) plus generation-specific
+  constraints (reachability of a level, budget bounds on an item roll).
+  Reject-and-reroll or repair strategies must themselves be deterministic.
+- **Authored/generated hybrid:** authored templates or grammar rules
+  (themselves data, §8) parameterize generation, keeping designer control over
+  the possibility space rather than fully-emergent output.
+
+#### Benefits
+- Reproducibility: a reported "broken level" is a seed, not a screenshot.
+- Testability: golden-seed tests (§17) lock down known-good generation;
+  statistical tests over thousands of seeds catch distribution regressions
+  (drop rates, difficulty curves).
+- Save/replay compactness: store seeds and versions, not content blobs.
+
+#### Costs & trade-offs
+- Versioning burden: any generator change silently alters what a stored seed
+  produces — saves/replays must record the generator version, and old versions
+  must either be kept runnable or their output migrated/cached (§11).
+- Pure-function discipline forbids convenient shortcuts (querying live game
+  state mid-generation) — inputs must be passed explicitly.
+- Constraint systems (reachability, balance budgets) are real engineering,
+  and rejection sampling can hide pathological slow cases behind rare seeds.
+
+#### When to use
+Any procedurally generated content that players keep (items, characters,
+worlds), that appears in saves/replays, or whose distribution needs balancing
+— i.e., almost all procedural content beyond momentary cosmetic variation.
+
+#### When not to use
+Pure presentation-layer variation (particle jitter, ambient scatter) needs no
+seed hierarchy or versioning — just keep it out of the simulation's RNG
+streams (§4).
+
+#### Decision criteria
+Will anyone ever need this exact output again (save, replay, bug report,
+test)? Seeded pure function. Does the output's *distribution* matter to
+balance? Add statistical tests. Neither? It's cosmetic; exempt it.
+
+#### Common mistakes
+- One global RNG shared across generation subsystems — adding an affix roll
+  changes next week's dungeon layouts.
+- Storing generated content without the (seed, version) that produced it,
+  making "regenerate vs. load" ambiguous after an update.
+- Generation reading mutable game state as a hidden input, so the same seed
+  produces different content depending on when it runs.
+- Validating authored content but trusting generated content — generators
+  have bugs too, and an invalid generated item corrupts saves just as surely.
+
+#### Related patterns
+Determinism requirements (§4) — generation is a major RNG consumer; data-driven
+content (§8) — schemas and templates; save versioning (§11) — generator-version
+recording; testing (§17) — golden seeds and statistical tests.
+
+#### Sources
+Gillian Smith, "Procedural Content Generation: An Overview" (*Game AI Pro 2*);
+Tarn Adams, "Simulation Principles from *Dwarf Fortress*" (*Game AI Pro 2*);
+Steve Rabin et al., "Advanced Randomness Techniques for Game AI" (*Game AI
+Pro*).
+
+---
+
+## 10. Communication: Events and State Ownership in Games
 
 #### Summary
 Prefer **event/signal-driven** communication between decoupled game systems
@@ -640,7 +970,7 @@ reference/binding is fine.
   [`02` §5.3](02-architecture-patterns.md#53-event-driven-architecture-pubsub--event-streaming).
 - Two systems both believing they own the same state and both mutating it.
 - Using events for something that actually needs a synchronous, ordered
-  answer within the same tick (see §8's ordering requirements) — an
+  answer within the same tick (see §4's ordering requirements) — an
   asynchronous event fan-out is the wrong tool when strict resolution order
   matters; use the command pattern's explicit ordering (§3) for those cases
   instead.
@@ -655,11 +985,108 @@ Robert Nystrom, *Game Programming Patterns* — Observer, Event Queue.
 
 ---
 
-## 8. Netcode Patterns for Asynchronous / Replay-Based Multiplayer
+## 11. Save-Data Persistence & Versioning
+
+#### Summary
+Treat save data as a **versioned, migratable data contract** — an explicit
+schema with a version number, a migration path from every shipped version, and
+corruption-resilient writes — not as a serialized dump of live runtime objects.
+
+#### Problem it addresses
+Saves outlive every version of the code that wrote them. A game that
+serializes its live object graph directly ties save compatibility to internal
+refactors (rename a field, break every player's save), and a game without
+migrations strands players on every content update. Save corruption (crash or
+power loss mid-write) with no recovery path destroys the most valuable thing a
+player owns.
+
+#### Description / How it works
+- **Explicit save schema:** save data is a designed, documented format
+  (versioned like the content schemas in §8, and referencing content by
+  stable ID, never by array index or memory reference). The mapping between
+  runtime state and save format is deliberate code, so internal refactors
+  don't silently change the format.
+- **Version + migration chain:** every save records its schema version;
+  loading applies stepwise migrations (v3→v4→v5) so any shipped version
+  remains loadable. Migrations are tested against a retained corpus of real
+  saves from each shipped version (§17).
+- **Atomic, corruption-resilient writes:** write to a temporary file, flush,
+  then rename over the previous save; optionally keep N rotating backups.
+  Validate on load (checksums, schema validation) and fall back to the newest
+  valid backup rather than crashing.
+- **Scope separation:** settings, meta-progression, and world/session state
+  have different lifecycles and risk profiles — separate files/records so a
+  corrupt session save doesn't take account-level progression with it.
+- **Untrusted input:** a save file is externally-modifiable input. Loading
+  must be robust against malformed data, and save formats must not be able to
+  reference or execute code (same rule as §8's mod data).
+- **Procedural content:** store (seed, generator version, params) rather than
+  generated blobs where practical (§9), plus any player-mutated deltas.
+
+#### Benefits
+- Content updates and refactors stop being save-breaking events — player
+  trust and review scores depend on this more than almost any other
+  reliability property.
+- Corruption recovery turns "lost 80 hours" into "lost 5 minutes."
+- A designed save format is also the foundation for cloud sync, cross-device
+  play, and server-side verification of client-reported progression.
+
+#### Costs & trade-offs
+- Explicit mapping + migrations is permanent ongoing work — every schema
+  change now has a migration cost, which is precisely the point but must be
+  budgeted.
+- A retained save corpus and migration tests add CI weight.
+- Storing seeds instead of content blobs binds you to keeping old generator
+  versions runnable (or migrating their output) — see §9's versioning note.
+
+#### When to use
+Every game with persistence beyond a single session. The discipline scales
+down (a small game may need one version field, one migration, one backup) but
+never to zero.
+
+#### When not to use
+Only truly ephemeral state (a score attack with a leaderboard entry and no
+saves) escapes this; even settings files benefit from the atomic-write rule.
+
+#### Decision criteria
+- Will players accumulate state they'd be upset to lose? Full discipline:
+  versioning + migrations + atomic writes + backups.
+- Is save data ever sent to a server or shared between players? Add strict
+  validation and treat it as untrusted input on receipt.
+- Does content evolve after launch? Stable content IDs (§8) and a policy for
+  saves referencing removed content (graceful degradation, substitution, or
+  compensation) are required, not optional.
+
+#### Common mistakes
+- Serializing engine objects / live object graphs directly — couples the save
+  format to code layout, engine version, and (in many engines) opens the
+  can-embed-code security hole.
+- No version field "because we'll add it when we need it" — the first save
+  without a version is unmigratable by definition.
+- In-place overwrite of the only save file, so a crash mid-write is total
+  loss.
+- Testing migrations only against synthetic saves, not real ones from shipped
+  builds — real saves contain the states you forgot were reachable.
+
+#### Related patterns
+Data-driven content (§8) — stable content IDs; procedural generation (§9) —
+seed/version storage; command pattern (§3) — some designs persist the command
+log itself (event-sourced saves, [`02` §6.4](02-architecture-patterns.md#64-event-sourcing));
+database change management parallels in [`07`](07-security-reliability-operations.md).
+
+#### Sources
+Jason Gregory, *Game Engine Architecture* (serialization and save-game
+systems); widely-documented industry practice (atomic save writes, save
+versioning/migration); same schema-evolution reasoning as
+[`02` §6.4](02-architecture-patterns.md#64-event-sourcing).
+
+---
+
+## 12. Netcode Patterns for Asynchronous / Replay-Based Multiplayer
 
 #### Summary
 For multiplayer built on **asynchronous, snapshot/replay-based** interaction
-(one player's squad fights a snapshot of another's, rather than both playing
+(one player's party fights a snapshot of another's, rather than both playing
 live simultaneously) — as opposed to real-time lockstep or client-server
 live-action netcode — the architecture is closer to "replay the deterministic
 simulation with a captured opponent input set" than to traditional real-time
@@ -667,20 +1094,20 @@ networking.
 
 #### Problem it addresses
 Live real-time multiplayer (lockstep, rollback, authoritative-server tick
-sync) solves a much harder problem than this project needs, at much higher
-cost: async PvP only requires that a fight between a live player's current
-build and a *stored snapshot* of another player's build produces a fair,
-reproducible, tamper-resistant result — no live connection between the two
-players is ever required.
+sync — see §13) solves a much harder problem than async competition needs, at
+much higher cost: async PvP only requires that a fight between a live player's
+current build and a *stored snapshot* of another player's build produces a
+fair, reproducible, tamper-resistant result — no live connection between the
+two players is ever required.
 
 #### Description / How it works
 ```
-Player A's squad (live)          Player B's squad (snapshot, stored server-side)
+Player A's party (live)          Player B's party (snapshot, stored server-side)
          │                                    │
          └──────────────┬─────────────────────┘
                          ▼
          Deterministic simulation core (§1)
-         runs once, using both squads' data
+         runs once, using both parties' data
          as input, with a fixed/shared seed
                          │
                          ▼
@@ -688,15 +1115,15 @@ Player A's squad (live)          Player B's squad (snapshot, stored server-side)
      (verifiable by re-running the same simulation
       with the same inputs, server-side or client-side)
 ```
-Each player's squad/build (heroes, gear, stats, Tactics/automation rules) is
+Each player's party/build (characters, gear, stats, automation rules) is
 serialized as a snapshot. An async PvP fight is a single deterministic
-simulation run (§1, §2, §3) over both snapshots — computed once, its result is
+simulation run (§1–§4) over both snapshots — computed once, its result is
 final and doesn't require either player to be online simultaneously.
 **Fairness and anti-cheat both reduce to determinism**: because the simulation
-is deterministic and both squads' data are captured/stored, any party
+is deterministic and both parties' data are captured/stored, any party
 (server, opponent's client, a third-party auditor) can independently
 re-run the exact same simulation and must get the exact same result — a
-mismatch is proof of tampering or a non-deterministic bug, not a legitimate
+mismatch is proof of tampering or a non-determinism bug, not a legitimate
 outcome to accept.
 
 #### Benefits
@@ -714,31 +1141,33 @@ outcome to accept.
 #### Costs & trade-offs
 - Only fits interaction models that genuinely don't need live simultaneous
   play — it cannot become real-time PvP later without a substantially
-  different (lockstep/rollback) netcode layer.
-- Snapshot staleness is a design question: if Player B improves their squad
+  different netcode layer (§13).
+- Snapshot staleness is a design question: if Player B improves their party
   after being snapshotted, defenders may be fighting an out-of-date version of
-  themselves — needs an explicit policy (refresh cadence, "defense squad" the
-  player actively curates, etc.), not just an implementation detail.
-- Full trust in the determinism requirement (§1, §2, §3, and the Coding
-  library's [determinism doc](../Coding/13-game-runtime-and-determinism.md))
-  — any non-determinism bug becomes a fairness/anti-cheat hole, not just a
-  visual glitch.
+  themselves — needs an explicit policy (refresh cadence, a defense loadout
+  the player actively curates, etc.), not just an implementation detail.
+- Full trust in the determinism requirement (§4) — any non-determinism bug
+  becomes a fairness/anti-cheat hole, not just a visual glitch. In particular,
+  if verification re-runs happen on different hardware than the original run
+  (server x86 vs. client mobile ARM), floating-point divergence (§4 rule 4)
+  will produce false tampering verdicts — an integer/fixed-point kernel or a
+  single canonical verification platform is required.
 
 #### When to use
-Async PvP (arena/defense-squad formats), leaderboard-driven competition,
+Async PvP (arena/defense-loadout formats), leaderboard-driven competition,
 and any "my build vs. a stored snapshot of your build" interaction model —
-exactly this project's chosen PvP shape.
+a common shape across mobile and idle/RPG genres.
 
 #### When not to use
 Live, simultaneous, latency-sensitive multiplayer (real-time co-op, live PvP
-where both players act and react to each other in the moment) needs
-lockstep/rollback/authoritative-server netcode instead — a fundamentally
+where both players act and react to each other in the moment) needs the
+lockstep/rollback/authoritative-server models in §13 instead — a fundamentally
 different, more expensive architecture this pattern does not cover.
 
 #### Decision criteria
 Do both participants need to be online and reacting to each other live? If
-yes, this pattern doesn't apply — need real-time netcode. Is the interaction
-"my current build vs. a captured snapshot," resolved as a single deterministic
+yes, this pattern doesn't apply — see §13. Is the interaction "my current
+build vs. a captured snapshot," resolved as a single deterministic
 computation? This pattern is the direct, low-cost fit.
 
 #### Common mistakes
@@ -749,23 +1178,551 @@ computation? This pattern is the direct, low-cost fit.
   "defense" outcomes players can't reason about.
 - Allowing any non-deterministic element (wall-clock-seeded RNG, unordered
   iteration, floating-point order-dependence) into the combat kernel — this
-  pattern has zero tolerance for the anti-patterns catalogued in the Coding
-  library's [determinism doc](../Coding/13-game-runtime-and-determinism.md) §14.
+  pattern has zero tolerance for the anti-patterns catalogued in §4.
 
 #### Related patterns
 Command pattern (§3) — the replay mechanism; simulation/presentation
-separation (§1); the general distributed-systems idempotency/verification
-reasoning in [`02` §7.7](02-architecture-patterns.md#77-idempotency).
+separation (§1); determinism requirements (§4); real-time netcode models
+(§13); the general distributed-systems idempotency/verification reasoning in
+[`02` §7.7](02-architecture-patterns.md#77-idempotency).
 
 #### Sources
 Glenn Fiedler, "Deterministic Lockstep" (the general determinism-for-
 multiplayer reasoning, applied here to the async/snapshot case specifically);
-general async-PvP/"defense squad" pattern as used across mobile idle/RPG
+general async-PvP/"defense loadout" pattern as used across mobile idle/RPG
 games.
 
 ---
 
-## 9. Game-Specific Quality Attributes
+## 13. Real-Time Netcode Models
+
+#### Summary
+Live multiplayer has four standard architectural families — **deterministic
+lockstep**, **rollback**, **authoritative server with client-side prediction**,
+and **snapshot interpolation** — differing in what is transmitted (inputs vs
+state), where authority lives, and how latency is hidden. Choosing among them
+is a bandwidth / latency-feel / cheat-resistance / determinism-cost trade.
+
+#### Problem it addresses
+Network latency is physics: inputs take tens to hundreds of milliseconds to
+travel, but players expect instant response and a consistent shared world.
+Every real-time netcode model is a different answer to "who simulates, what is
+sent, and how is the delay hidden" — picking the wrong model for the genre
+produces either unplayable input lag, unaffordable bandwidth, or trivially
+exploitable cheating.
+
+#### Description / How it works
+- **Deterministic lockstep** — send only each player's *inputs*; every peer
+  runs the same deterministic simulation (§4). Bandwidth is proportional to
+  input size, not world size (a million-object sim networks as cheaply as
+  one). The simulation cannot advance past a tick until all inputs for it have
+  arrived, so latency/jitter appear as input delay or stalls (mitigated by a
+  playout-delay buffer and by sending redundant un-acked inputs over UDP
+  rather than waiting on TCP retransmission). Classic fit: RTS, large unit
+  counts, same-build peers.
+- **Rollback** — lockstep's responsiveness fix: *predict* remote inputs
+  (usually "same as last tick"), simulate immediately, and on receiving the
+  real input, roll back to the last confirmed state and re-simulate forward.
+  Local input feels zero-latency; mispredictions appear as small corrections.
+  Requires a deterministic sim (§4) *plus* fast state save/load and the CPU
+  headroom to re-simulate several ticks per frame. Industry standard for
+  fighting games; increasingly the expected baseline for peer-to-peer action.
+- **Authoritative server + client-side prediction** — clients send inputs;
+  the server runs the authoritative simulation and broadcasts state. Clients
+  *predict* their own movement locally and **reconcile** when the server's
+  authoritative result arrives (replaying pending inputs on top of it); other
+  players are displayed via **entity interpolation** between received states
+  (slightly in the past); optional **lag compensation** has the server rewind
+  its world to what a shooting client actually saw when validating hits.
+  The standard for FPS/action games and anything cheat-sensitive: the server
+  is the single source of truth and clients are untrusted input devices.
+- **Snapshot interpolation** — the server (or session host) sends compressed
+  world-state snapshots at a fixed rate; clients buffer and interpolate
+  between them without simulating game logic locally. Simple and robust
+  (no client sim, no determinism requirement), at the cost of bandwidth
+  scaling with world size and all interaction feeling one buffer behind —
+  often combined with prediction for the local player only.
+
+Security holds across all models: **never trust the client.** Validate every
+client-supplied input server-side (or peer-side), rate-limit, and treat
+client-reported state (position, cooldowns, results) as a cheat vector — the
+same reasoning as §12's verification-by-re-simulation.
+
+#### Benefits
+- Each model is well-documented, battle-tested, and has known genre fits —
+  this is one of the few game-architecture areas with genuine industry
+  consensus.
+- Input-based models (lockstep/rollback) give huge-world bandwidth savings
+  and replay/verification for free (the input log *is* the replay, §3).
+- Server-authoritative models give cheat resistance and late-join/reconnect
+  simplicity (state lives in one place).
+
+#### Costs & trade-offs
+- Lockstep/rollback require full determinism (§4) including its cross-platform
+  float problem, and make late-join/reconnect hard (must transfer and verify
+  full state).
+- Rollback's re-simulation budget constrains simulation cost per tick; visual
+  corrections need concealment work (animation smoothing).
+- Server-authoritative models cost server capacity, add prediction/
+  reconciliation complexity per gameplay mechanic, and lag compensation
+  creates "shot behind cover" controversies — a designed trade, not a bug.
+- Snapshot models spend bandwidth proportional to visible world size and need
+  aggressive compression/delta encoding at scale.
+
+#### When to use
+- Many entities, few players, same build on all peers → lockstep.
+- Few entities, twitch-sensitive, peer-to-peer → rollback.
+- Cheat-sensitive, many players, mixed platforms → authoritative server +
+  prediction.
+- Physics-heavy or logic-light worlds, or thin clients → snapshot
+  interpolation (+ local prediction as needed).
+
+#### When not to use
+Don't build live netcode at all if the design is satisfied by asynchronous
+snapshot competition (§12) — it is an order of magnitude cheaper. Don't use
+client-authority "temporarily" in a competitive game; it never gets removed
+under schedule pressure.
+
+#### Decision criteria
+Four questions pick the model: (1) How much state would state-transfer cost vs
+input-transfer (world size)? (2) How latency-sensitive is the core verb
+(twitch vs strategic)? (3) How cheat-sensitive is the game (competitive/
+economy vs co-op among friends)? (4) Can the team afford determinism (§4)
+across all shipping platforms? The answers usually leave exactly one viable
+family.
+
+#### Common mistakes
+- Retrofitting multiplayer onto a simulation that reads render state, uses
+  ambient RNG, or has no fixed tick — the §1/§2/§4 disciplines are the actual
+  prerequisite for every model except pure snapshot interpolation.
+- Sending reliable-ordered everything (TCP or reliable channels) for
+  latency-sensitive data — one lost packet stalls everything behind it;
+  unreliable delivery with redundancy or sequencing is the standard fix.
+- Testing only on LAN — every model's failure modes (buffer stalls, rollback
+  depth, reconciliation snaps) appear only under real latency, jitter, and
+  loss; test with network-condition simulation from day one.
+- Letting clients report outcomes ("I hit him," "I have 100 gold") instead of
+  inputs/intents that the authority validates.
+
+#### Related patterns
+Determinism requirements (§4) — precondition for lockstep/rollback; command
+pattern (§3) — inputs-as-data; async alternative (§12); event-driven state
+distribution parallels in [`02` §5.3](02-architecture-patterns.md#53-event-driven-architecture-pubsub--event-streaming).
+
+#### Sources
+Gabriel Gambetta, *Fast-Paced Multiplayer* series (authoritative server,
+prediction/reconciliation, entity interpolation, lag compensation); Glenn
+Fiedler, "Deterministic Lockstep," "Snapshot Interpolation," and the
+networked-physics series; GGPO rollback SDK (Tony Cannon); Blizzard,
+"Overwatch Gameplay Architecture and Netcode" (GDC 2017).
+
+---
+
+## 14. Performance Patterns (Pooling, Spatial Partitioning, Data Locality)
+
+#### Summary
+Four standard patterns cover most game-side CPU performance work: **object
+pooling** (reuse instead of allocate), **spatial partitioning** (query by
+location instead of scanning everything), **data locality** (lay data out for
+the cache, the core idea of data-oriented design), and **dirty flags** (compute
+only what changed) — plus **time-slicing/LOD** for work that can be amortized.
+
+#### Problem it addresses
+Per-tick simulation work scales with entity count, and frame budgets (§15) are
+hard deadlines. The dominant, recurring causes of blown budgets are: allocation
+/garbage-collection spikes from per-frame object churn; O(n²) proximity scans
+("check every entity against every other"); cache-hostile memory layouts
+(pointer-chasing scattered objects); and recomputing expensive derived values
+that didn't change.
+
+#### Description / How it works
+- **Object pool:** pre-allocate a fixed set of reusable instances
+  (projectiles, particles, damage numbers, network packets); "creating" one
+  takes it from the pool, "destroying" returns it. Eliminates both allocation
+  cost and GC/fragmentation pressure in managed and native runtimes alike.
+  Requires explicit reset-on-reuse and a policy for pool exhaustion (grow,
+  drop-oldest, or fail loudly).
+- **Spatial partition:** a uniform grid, quadtree/octree, or BVH mapping
+  positions to entities, so "what's within radius r" is a local lookup, not a
+  full scan. A uniform grid is usually the right first choice (simple,
+  rebuild-per-tick is often cheaper than incremental maintenance); trees earn
+  their complexity with strongly non-uniform entity distributions.
+- **Data locality / data-oriented design:** iterate contiguous arrays of
+  exactly the data the loop needs (SoA — struct-of-arrays) rather than
+  pointer-chasing heterogeneous objects (AoS with cold fields). Split hot data
+  (touched every tick) from cold data (touched rarely); this is the mechanism
+  behind ECS's bulk-iteration speed (§5) but applies without ECS too.
+- **Dirty flag:** cache derived values (world transforms, aggregated stats,
+  pathfinding results) and recompute only when a dependency actually changed.
+  The cost is the discipline of invalidating correctly — a missed invalidation
+  is a stale-value bug.
+- **Time-slicing / logic LOD:** not everything needs every tick — update
+  distant/off-screen AI at a lower rate, spread expensive scans across N
+  ticks, budget pathfinding requests per frame. In a deterministic kernel
+  (§4), slicing schedules must themselves be deterministic (tick-count based,
+  not wall-time based).
+
+#### Benefits
+- These four patterns account for the large majority of "game got slow at
+  scale" fixes and are cheap to apply where the design anticipated them.
+- Pooling converts unpredictable GC/allocator spikes into predictable, flat
+  cost — often the difference between passing and failing frame pacing (§15).
+- Spatial partitioning turns the single most common O(n²) hotspot into O(n).
+
+#### Costs & trade-offs
+- Every pattern adds bookkeeping and a new bug class: stale pooled state,
+  entities in the wrong partition cell after moving, missed dirty-flag
+  invalidation, LOD'd AI visibly "waking up."
+- Data-oriented layouts trade ergonomics for speed — SoA code is more awkward
+  to write and refactor than object-oriented AoS.
+- Applied before profiling shows the need (§15), they are premature
+  complexity; the entity counts of many games never reach the threshold.
+
+#### When to use
+When profiling (§15) attributes frame cost to allocation churn, proximity
+scans, cache misses on bulk iteration, or repeated derived-value computation —
+or at design time for systems *known* to face high counts (bullets, particles,
+large battles, crowd sims).
+
+#### When not to use
+At prototype scale, or for systems with bounded small counts — a fight with
+eight units needs none of this, and the bookkeeping would only add bug
+surface.
+
+#### Decision criteria
+Measure first (§15). Then: allocation spikes → pool; proximity queries →
+spatial partition; bulk-iteration cache misses → locality/SoA (possibly full
+ECS, §5); repeated derived computation → dirty flag; "everything a little too
+expensive" → time-slicing and logic LOD before micro-optimization.
+
+#### Common mistakes
+- Pooled objects leaking state between uses (the previous owner's target,
+  a still-subscribed event handler) — reset must be total and tested.
+- Rebuilding a complex tree structure every tick when a dumb uniform grid
+  would be both simpler and faster.
+- Optimizing the object model around cache behavior before any measurement,
+  in a game whose real bottleneck is the GPU or a single pathological
+  algorithm.
+- Time-slicing gameplay-visible logic on wall-clock time inside a
+  deterministic kernel, breaking §4.
+
+#### Related patterns
+Entity modeling (§5) — ECS is data locality institutionalized; frame budget &
+profiling (§15) — the evidence for applying any of these; determinism (§4) —
+constraints on slicing/scheduling.
+
+#### Sources
+Robert Nystrom, *Game Programming Patterns* — Object Pool, Spatial Partition,
+Data Locality, Dirty Flag; Richard Fabian, *Data-Oriented Design*; Mike Acton,
+"Data-Oriented Design and C++" (CppCon 2014); DICE, "Culling the Battlefield"
+(GDC 2011).
+
+---
+
+## 15. Frame-Budget & Profiling Discipline
+
+#### Summary
+Treat the frame as a **hard real-time budget** (16.6 ms at 60 Hz) allocated
+explicitly across subsystems, enforced by continuous measurement on target
+hardware — not as an average FPS number checked occasionally on a developer
+machine.
+
+#### Problem it addresses
+Frame cost grows by accretion: each feature adds "only a millisecond," nobody
+owns the total, and the game discovers it misses 60 Hz — or thermally throttles
+on mobile — months later, when the causes are hundreds of small, entangled
+costs. Average FPS hides the real player experience: intermittent spikes
+(hitches) are more noticeable than a uniformly lower frame rate.
+
+#### Description / How it works
+- **Explicit budget allocation:** divide the frame across subsystems
+  (simulation tick, AI, physics, animation, rendering submission, UI, audio)
+  with named owners — the same structure as any capacity budget. A subsystem
+  over budget is a bug with an owner, not ambient slowness.
+- **Measure the distribution, not the mean:** track frame-time percentiles
+  and worst-frame spikes (e.g. "1% low" frame times); a 200 ms hitch every
+  ten seconds ruins a 60 FPS average. Frame *pacing* (consistent delivery)
+  matters as much as frame *rate* — a stable 30 is smoother than an erratic
+  45.
+- **Profile release builds on target hardware:** debug builds and developer
+  machines misattribute costs. Mobile adds a second, sustained dimension:
+  a device that holds 60 Hz for two minutes may thermally throttle to a
+  fraction of that after twenty — soak-test, don't spot-check.
+- **Instrument continuously:** lightweight per-subsystem timers shipping in
+  development builds (and ideally telemetry from real devices) catch budget
+  regressions at commit time; deep profilers (sampling/tracing) are for
+  diagnosis, not detection.
+- **Degradation levers:** decide *in advance* what sheds load when over
+  budget — render resolution/quality scaling, logic LOD and time-slicing
+  (§14), effect density caps — rather than discovering at ship time that
+  nothing is detachable.
+
+#### Benefits
+- Converts "the game feels bad sometimes" into an attributable, regressable
+  metric per subsystem.
+- Budget ownership makes performance a design-time constraint on features
+  ("this system gets 2 ms") instead of a post-hoc crisis.
+- Percentile/pacing focus targets what players actually perceive.
+
+#### Costs & trade-offs
+- Instrumentation and device-lab/soak testing are ongoing infrastructure
+  costs, easy to deprioritize because their absence hurts only later.
+- Hard budgets create real design pressure — features get cut or simplified
+  against them; that is the mechanism working, but it needs organizational
+  buy-in.
+- Over-instrumentation itself costs frame time; measurement must be cheap and
+  toggleable.
+
+#### When to use
+Any game with a real-time rendering loop, from the first playable build —
+budgets are cheap to hold from the start and near-impossible to claw back
+after a year of unowned accretion. Mobile and VR (where missed frames cause
+discomfort) demand the strictest form.
+
+#### When not to use
+Pure turn-based/UI-driven games without continuous animation can relax to
+responsiveness targets ([`06`](06-quality-attributes-tradeoffs.md) latency
+framing) — though load-time and battery budgets still apply.
+
+#### Decision criteria
+- Target platform floor (weakest supported device), target rate (30/60/120,
+  VR ≥ 90), and thermal envelope define the budget — derive it, don't assume
+  16.6 ms.
+- If any subsystem has no measured cost, the budget isn't real yet.
+- If the worst 1% of frames is more than ~2× the median, chase spikes
+  (allocation/GC, synchronous loads §16, pathological algorithms) before
+  shaving averages.
+
+#### Common mistakes
+- Optimizing based on averages while players complain about hitches the
+  average hides.
+- Profiling debug builds or only on high-end developer hardware.
+- Ignoring sustained thermal behavior on mobile — the two-minute benchmark
+  passes, the twenty-minute session throttles.
+- Having no degradation levers, so the only response to a blown budget late
+  in development is cutting features under pressure.
+- Death by a thousand cuts with no budget ownership — every individual
+  feature was "cheap."
+
+#### Related patterns
+Performance patterns (§14) — the standard fixes; asset streaming (§16) —
+load-hitch avoidance; fixed-tick pipeline (§2) — decoupling sim cost from
+render cost; the general performance-efficiency NFR in
+[`06` §2](06-quality-attributes-tradeoffs.md#2-the-quality-attributes-catalog).
+
+#### Sources
+Robert Nystrom, *Game Programming Patterns* (optimization chapters' framing);
+industry profiling practice as documented in engine profiler/tracing
+documentation and GDC performance postmortems; frame-pacing guidance from
+platform vendor documentation.
+
+---
+
+## 16. Asset Pipeline & Content Streaming
+
+#### Summary
+Do asset work (format conversion, compression, atlasing, baking) **at import/
+build time** in a deterministic pipeline, and load the results at runtime
+**asynchronously and within explicit memory budgets** — streaming content in
+and out around the player rather than loading everything up front or, worse,
+synchronously mid-frame.
+
+#### Problem it addresses
+Assets dominate a game's size and memory footprint. Without a pipeline,
+runtime pays for work that could have been precomputed (decoding, conversion,
+mip generation); without budgets, content growth silently exceeds the memory
+ceiling of the weakest target device; without async loading, every load is a
+frame hitch (§15) or a loading screen.
+
+#### Description / How it works
+- **Import-time vs runtime split:** source assets (PSD, FBX/glTF, WAV) are
+  transformed once, deterministically, into runtime-optimal formats
+  (compressed textures, platform audio formats, baked lighting/navmeshes) by
+  a rebuildable pipeline — cached, versioned, and reproducible from sources,
+  exactly like a code build ([`07`](07-security-reliability-operations.md)
+  supply-chain reasoning applies to asset pipelines too).
+- **Memory budgets per category:** textures, meshes, audio, UI each get an
+  explicit budget per target platform, tracked by tooling, so content
+  creators discover "over budget" at authoring time, not at device-QA time.
+- **Async loading & streaming:** load off the critical path (background
+  threads/async IO), reference-count or scene-scope asset lifetimes, and
+  stream in/out by proximity, level section, or LOD tier. Synchronous loads
+  are reserved for loading screens.
+- **Load-time architecture:** startup loads the minimum to reach
+  interactivity (the game-side analog of web LCP thinking,
+  [`04` §4](04-web-application-design.md#4-frontend-performance--core-web-vitals));
+  everything else defers, preloads predictively (next area, likely-needed
+  effects), or streams on demand — with designed placeholder behavior
+  (low-res first, hidden until ready) instead of pop-in surprises.
+- **Stable references:** gameplay references content by stable ID through an
+  indirection (asset database/registry), not by file path — the same
+  stable-ID rule as §8/§11, and the enabler for patching and DLC.
+
+#### Benefits
+- Runtime does no work a build machine could have done — faster loads, lower
+  memory, better battery.
+- Budgets convert "the game crashes on 4 GB devices" into an authoring-time
+  lint error.
+- Async/streaming removes the hitch class of frame spikes (§15) and unlocks
+  larger-than-memory worlds.
+
+#### Costs & trade-offs
+- The pipeline is real infrastructure: import tooling, caching, versioning,
+  and invalidation bugs ("why is this texture stale?") are an ongoing cost.
+- Streaming adds failure modes single-load games lack: pop-in, placeholder
+  visibility, ordering bugs (using an asset before it's resident), and
+  IO-bandwidth contention.
+- Predictive preloading trades memory for smoothness — the budget must
+  reserve headroom for it.
+
+#### When to use
+Scales with content volume: every game benefits from the import-time/runtime
+split and stable IDs; explicit budgets become mandatory when targeting memory-
+constrained devices; streaming becomes mandatory when content exceeds memory
+or load-screen tolerance.
+
+#### When not to use
+A small game whose entire content set fits comfortably in the weakest target's
+memory can load everything at startup and skip streaming complexity entirely —
+the budgets are still worth writing down, the streaming machinery is not.
+
+#### Decision criteria
+- Does total resident content exceed the weakest device's budget? Streaming
+  required; otherwise optional.
+- Is time-to-interactive above target? Split startup loading into
+  minimum-to-play + deferred.
+- Any synchronous IO reachable during gameplay? That's a latent hitch —
+  make it async or preloaded.
+
+#### Common mistakes
+- Doing import work at runtime "temporarily" — decode/convert costs shipping
+  to players as load time and battery drain.
+- No per-category budgets, discovering memory ceilings on real devices during
+  certification/release QA.
+- Streaming systems without designed placeholder states — pop-in becomes the
+  aesthetic.
+- Referencing assets by path from gameplay code, making every content
+  reorganization a code change and breaking patchability (§8's stable-ID rule).
+
+#### Related patterns
+Data-driven content (§8) — the data half of the same pipeline; save versioning
+(§11) — stable IDs; frame budget (§15) — hitch avoidance; supply-chain and
+build reproducibility reasoning in [`07`](07-security-reliability-operations.md).
+
+#### Sources
+Jason Gregory, *Game Engine Architecture* (resource and asset-pipeline
+chapters); engine asset-import/streaming documentation across major engines
+(the pattern is uniform even where mechanisms differ).
+
+---
+
+## 17. Testing & Verification for Games
+
+#### Summary
+Games are testable to a degree folklore denies — *if* the architecture
+cooperates: a headless deterministic sim core (§1, §4) enables **golden-replay
+regression tests**, **invariant/property tests over fuzzed command streams**,
+**statistical balance tests**, and **autoplay agents**, alongside conventional
+unit tests for pure logic.
+
+#### Problem it addresses
+"Games can't be tested automatically" usually means "we entangled simulation
+with rendering, so nothing runs headless." The result is regression-by-patch:
+every balance change or refactor risks silently breaking combat math, replay
+compatibility, save migration, or determinism, and only manual playtesting —
+expensive, slow, unrepeatable — stands in the way.
+
+#### Description / How it works
+- **Golden-replay regression:** record (seed + command log + final state
+  checksum) for a corpus of representative sessions (§3); CI re-runs each
+  replay headless and compares checksums. Any unintended change to simulation
+  behavior fails loudly, with the diverging tick identified (§4 rule 5).
+  Intended balance changes update the goldens explicitly — making "this patch
+  changes outcomes" a reviewed artifact.
+- **Determinism tests:** run the same (seed, commands) twice — and on every
+  target platform/build configuration — and require bit-identical state.
+  This single test enforces all of §4 mechanically.
+- **Command fuzzing / property tests:** generate random-but-valid command
+  streams and assert invariants that must hold in *any* game (HP within
+  bounds, no negative currency, no orphaned entity references, conservation
+  rules) rather than specific outcomes. Finds the states designers never
+  reach by hand.
+- **Statistical balance tests:** run thousands of headless fights/generations
+  across seeds and assert distribution properties (win rates within bands,
+  drop rates near design targets, difficulty curve monotonicity). Catches
+  balance regressions as numbers, not player complaints.
+- **Autoplay agents:** scripted or AI-driven bots playing the real game loop
+  (headless or full build) for soak testing, progression validation ("is the
+  tutorial completable?"), and tuning data at pre-launch scale.
+- **Save/migration corpus tests:** retained real saves from every shipped
+  version, loaded and migrated in CI (§11).
+- **Layer separation in testing:** presentation gets thin smoke tests
+  (boots, renders, responds); the heavy investment goes where headless
+  execution makes tests fast and deterministic — the sim core.
+
+#### Benefits
+- Regression safety for the two things players punish hardest: broken saves
+  and stealth-changed game balance.
+- The same harness is a *design* tool: balance simulation at content-authoring
+  time (§8) reuses the test infrastructure.
+- Determinism tests convert §4 from a convention into an enforced property.
+
+#### Costs & trade-offs
+- All of it is gated on §1/§4 architecture — with an entangled sim, the
+  cost of testing is the cost of the retrofit rewrite.
+- Golden corpora and save corpora need curation; over-broad goldens make
+  every intended change a noisy mass-update.
+- Statistical tests need thoughtful bands — too tight flakes on variance, too
+  loose misses regressions.
+- Fun, feel, and clarity remain human judgments — automation frees
+  playtesting *for* those, it does not replace it.
+
+#### When to use
+The sim-core test set (goldens, determinism, invariants) belongs to any game
+meeting §1's conditions — it is the payoff for that architecture. Statistical
+and autoplay layers earn their cost as content volume and balance surface
+grow.
+
+#### When not to use
+A game-jam prototype tests nothing and that's correct. Presentation-heavy,
+logic-light games (narrative/visual) get more value from smoke tests and
+save-corpus tests than from simulation harnesses they don't need.
+
+#### Decision criteria
+- Can the sim run headless? If not, fix that first (§1) — nothing else here
+  is reachable.
+- Does the game have PvP verification or replay features? Then determinism
+  tests are mandatory, not optional (§12).
+- Is balance a live, evolving surface? Statistical tests and autoplay agents
+  move from luxury to core tooling.
+
+#### Common mistakes
+- Testing through the UI (pixel/screen-driven end-to-end tests) as the
+  primary strategy — slow, flaky, and coupled to presentation churn; the
+  stable interface is the command/event boundary (§1, §3).
+- Golden replays with no policy for intended changes, training the team to
+  rubber-stamp mass-updates and thereby miss real regressions.
+- Running determinism tests on one platform only — cross-platform divergence
+  (§4 rule 4) is precisely what single-platform CI cannot see.
+- Letting the test harness use a different code path than shipping ("test
+  mode") — the harness must drive the same kernel players run.
+
+#### Related patterns
+Simulation/presentation separation (§1) — the enabling architecture;
+determinism (§4) — the enforced property; command pattern (§3) — the test
+input format; save versioning (§11) — the corpus tests; general test-pyramid
+reasoning in [`07`](07-security-reliability-operations.md).
+
+#### Sources
+Malte Skarupke, "Automated AI Testing: Simple tests will save you time"
+(*Game AI Pro*, online edition 2021); Igor Borovikov et al., "AI-Driven
+Autoplay Agents for Prelaunch Game Tuning" (*Game AI Pro*, online edition
+2021); golden-master/property-based testing practice applied to deterministic
+simulations.
+
+---
+
+## 18. Game-Specific Quality Attributes
 
 The general NFR catalog in [`06` §2](06-quality-attributes-tradeoffs.md#2-the-quality-attributes-catalog)
 applies to games too (performance, reliability, security, usability). Games add
@@ -773,45 +1730,58 @@ attributes not prominent in that general catalog:
 
 | Attribute | What it means for a game | Primary tension |
 |---|---|---|
-| **Determinism** | Same inputs + same seed → bit-identical output, every time, on every machine/path (live, offline-calc, replay, PvP verification) | vs. floating-point/platform convenience — non-deterministic shortcuts are often *individually* harmless and only fail in combination |
-| **Frame-time budget** | A hard per-frame deadline (e.g. 16.6 ms at 60 Hz), not an average-latency SLO | vs. feature richness — every added per-frame system competes for the same fixed budget |
+| **Determinism** | Same inputs + same seed → bit-identical output, every time, on every machine/path (live, offline-calc, replay, PvP verification) — see §4 | vs. floating-point/platform convenience — non-deterministic shortcuts are often *individually* harmless and only fail in combination |
+| **Frame-time budget** | A hard per-frame deadline (e.g. 16.6 ms at 60 Hz), not an average-latency SLO — see §15 | vs. feature richness — every added per-frame system competes for the same fixed budget |
 | **Replayability** | A stored input/command log can reproduce an exact past session | vs. content-update velocity — a format/rule change can invalidate old replays without an explicit versioning discipline |
-| **Load time / startup** | Time to interactive content, especially on mobile (analogous to Core Web Vitals' LCP, [`04` §4](04-web-application-design.md#4-frontend-performance--core-web-vitals)) | vs. asset richness/upfront content loading |
-| **Mobile memory/thermal ceiling** | A hard, non-negotiable ceiling with no swap headroom; sustained (not just burst) load causes thermal throttling | vs. simultaneous on-screen complexity (a full-squad, full-effects combat scene) |
-| **Fairness (PvP integrity)** | An async or live PvP result must be independently verifiable, not just client-reported | vs. client-authoritative convenience (trusting the client is simpler, but not fair-verifiable) |
-| **Content/data velocity** | New content ships as data, not code, and doesn't corrupt existing saves/replays | vs. mechanic novelty — content that doesn't fit the existing schema needs new interpreter code |
+| **Load time / startup** | Time to interactive content, especially on mobile (analogous to Core Web Vitals' LCP, [`04` §4](04-web-application-design.md#4-frontend-performance--core-web-vitals)) — see §16 | vs. asset richness/upfront content loading |
+| **Mobile memory/thermal ceiling** | A hard, non-negotiable ceiling with no swap headroom; sustained (not just burst) load causes thermal throttling | vs. simultaneous on-screen complexity (a full-party, full-effects combat scene) |
+| **Fairness (PvP integrity)** | An async or live PvP result must be independently verifiable, not just client-reported (§12, §13) | vs. client-authoritative convenience (trusting the client is simpler, but not fair-verifiable) |
+| **Content/data velocity** | New content ships as data, not code, and doesn't corrupt existing saves/replays (§8, §11) | vs. mechanic novelty — content that doesn't fit the existing schema needs new interpreter code |
+| **Save durability** | Player progress survives crashes, updates, and device changes (§11) | vs. schema/refactor freedom — every save-touching change carries a migration cost |
 
-**Decision guidance:** for a design with offline-progress calculation and
-async PvP as core pillars (as in this project), **determinism and fairness are
-not optional trade-offs to weigh against convenience** — they are prerequisites
-the other quality attributes must be achieved *within*, the same way security
+**Decision guidance:** for designs where offline-progress calculation or
+verifiable PvP are core pillars, **determinism and fairness are not optional
+trade-offs to weigh against convenience** — they are prerequisites the other
+quality attributes must be achieved *within*, the same way security
 correctness is non-negotiable in [`06`](06-quality-attributes-tradeoffs.md)'s
 general framing. Treat them like a safety constraint, not a tunable NFR.
 
 ---
 
-## 10. Anti-patterns
+## 19. Anti-patterns
 
 | Anti-pattern | Why it's harmful | Avoid by |
 |---|---|---|
-| **Retrofitted determinism** | Non-deterministic habits (unseeded RNG, unordered iteration, render-tick-dependent math) accumulate silently until offline-calc/replay/PvP results diverge from live play, at which point fixing it is a rewrite of the combat kernel, not a patch | Enforce determinism (§8, external Coding-library rules) from the first line of simulation code |
+| **Retrofitted determinism** | Non-deterministic habits (unseeded RNG, unordered iteration, render-tick-dependent math) accumulate silently until offline-calc/replay/PvP results diverge from live play, at which point fixing it is a rewrite of the combat kernel, not a patch | Enforce determinism (§4) from the first line of simulation code, verified by tests (§17) |
 | **Simulation entangled with rendering** | Blocks headless offline calc, server-side PvP verification, and automated testing | Sim/presentation separation (§1) as a hard boundary, not a convention |
-| **God update loop** | One `_process`/`update()` doing physics, AI, UI, and rendering inline becomes unreadable and impossible to budget per-subsystem | Fixed-tick pipeline (§2) with explicit per-subsystem budgets |
-| **Undocumented simultaneous-event resolution order** | Two events that could resolve in either order (e.g. mutual-kill) silently produce different, unreproducible results depending on incidental iteration order | Deterministic update ordering, documented as part of the combat-kernel contract (external Coding-library §10) |
-| **Client-authoritative PvP** | A client-reported result with no independent re-simulation is trivially exploitable | Netcode via independently-verifiable deterministic replay (§8) |
-| **Content-as-code for high-volume categories** | Every new item/skill/affix requires a code change and rebuild, throttling content velocity and blocking moddability | Data-driven content pipeline (§6) against versioned schemas |
-| **Executable mod/import data** | Loading untrusted external content as anything that can reference or execute code is a security hole disguised as a content feature | Restrict external/mod data to plain, schema-validated, non-executable formats |
-| **Boolean-flag state explosion** | Independent flags for what are really mutually-exclusive modes admit invalid combinations and become unreadable as they accumulate | State machines (§5) for genuinely mutually-exclusive modes; data (status-effect lists) for genuinely orthogonal, simultaneous concerns |
+| **God update loop** | One monolithic per-frame update callback doing physics, AI, UI, and rendering inline becomes unreadable and impossible to budget per-subsystem | Fixed-tick pipeline (§2) with explicit per-subsystem budgets (§15) |
+| **Undocumented simultaneous-event resolution order** | Two events that could resolve in either order (e.g. mutual-kill) silently produce different, unreproducible results depending on incidental iteration order | Deterministic update ordering (§4), documented as part of the combat-kernel contract |
+| **Client-authoritative PvP** | A client-reported result with no independent re-simulation or server validation is trivially exploitable | Independently-verifiable deterministic replay (§12) or server-authoritative netcode (§13) |
+| **Content-as-code for high-volume categories** | Every new item/skill/affix requires a code change and rebuild, throttling content velocity and blocking moddability | Data-driven content pipeline (§8) against versioned schemas |
+| **Executable mod/import data** | Loading untrusted external content as anything that can reference or execute code is a security hole disguised as a content feature | Restrict external/mod data to plain, schema-validated, non-executable formats (§8, §11) |
+| **Boolean-flag state explosion** | Independent flags for what are really mutually-exclusive modes admit invalid combinations and become unreadable as they accumulate | State machines (§6) for genuinely mutually-exclusive modes; data (status-effect lists) for genuinely orthogonal, simultaneous concerns |
+| **Save format as serialized runtime objects** | Couples save compatibility to internal refactors and engine versions; often can embed executable references | Explicit, versioned save schema with migrations (§11) |
+| **Premature performance architecture** | Building custom ECS/pooling/partitioning machinery before any measurement shows the need adds bug surface without benefit | Profile first (§15); apply §14 patterns where evidence points |
 
 ---
 
 ## Sources
 
-Glenn Fiedler, "Fix Your Timestep!," "Deterministic Lockstep," "Floating Point
-Determinism" — https://gafferongames.com/. Robert Nystrom, *Game Programming
-Patterns* — https://gameprogrammingpatterns.com/ (Game Loop, Update Method,
-Command, State, Observer, Event Queue, Component, Type Object, Double Buffer).
-Adam Martin, "Entity Systems are the future of MMOG development." Damian Isla,
-"Handling Complexity in the Halo 2 AI" (GDC). General event-driven-architecture
-and event-sourcing sources shared with [`02`](02-architecture-patterns.md) and
-[`09`](09-references.md).
+Glenn Fiedler, "Fix Your Timestep!," "Deterministic Lockstep," "Snapshot
+Interpolation," "Floating Point Determinism" — https://gafferongames.com/.
+Robert Nystrom, *Game Programming Patterns* —
+https://gameprogrammingpatterns.com/ (Game Loop, Update Method, Command, State,
+Observer, Event Queue, Component, Type Object, Double Buffer, Object Pool,
+Spatial Partition, Data Locality, Dirty Flag). Gabriel Gambetta, *Fast-Paced
+Multiplayer* series — https://www.gabrielgambetta.com/client-server-game-architecture.html.
+GGPO rollback SDK (Tony Cannon) — https://github.com/pond3r/ggpo. Sander
+Mertens, *ECS FAQ* — https://github.com/SanderMertens/ecs-faq. Adam Martin,
+"Entity Systems are the future of MMOG development." Scott Bilas, "A
+Data-Driven Game Object System" (GDC 2002). Damian Isla, "Handling Complexity
+in the Halo 2 AI" (GDC 2005). Blizzard, "Overwatch Gameplay Architecture and
+Netcode" (GDC 2017). *Game AI Pro* series (free chapters) —
+http://www.gameaipro.com/. Richard Fabian, *Data-Oriented Design* —
+https://www.dataorienteddesign.com/dodbook/. Mike Acton, "Data-Oriented Design
+and C++" (CppCon 2014). Jason Gregory, *Game Engine Architecture*. General
+event-driven-architecture and event-sourcing sources shared with
+[`02`](02-architecture-patterns.md) and [`09`](09-references.md).

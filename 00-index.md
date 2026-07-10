@@ -30,7 +30,7 @@ A practical process:
 - **Legacy modernization?** [`01`](01-architecture-principles.md) (evolutionary architecture, ADRs) + [`02`](02-architecture-patterns.md) (strangler fig, anti-corruption layer, modular monolith) + [`08`](08-checklists-and-templates.md) (modernization log).
 - **Security/compliance review?** [`07`](07-security-reliability-operations.md) (SSDF, threat modeling, supply chain) + [`04`](04-web-application-design.md) (web security) + [`05`](05-desktop-application-design.md) (sandboxing/IPC/updates) + [`08`](08-checklists-and-templates.md) checklists.
 - **Resolving a trade-off?** Use the [Decision Quick-Reference Matrix](#decision-quick-reference-matrix) below, then [`06`](06-quality-attributes-tradeoffs.md).
-- **Building a game / real-time simulation?** See [`10`](10-game-architecture.md), with [`01`](01-architecture-principles.md)/[`02`](02-architecture-patterns.md) for general structural patterns and [`03`](03-software-design-principles.md) for composition-over-inheritance and code-level design.
+- **Building a game / real-time simulation?** See [`10`](10-game-architecture.md), with [`01`](01-architecture-principles.md)/[`02`](02-architecture-patterns.md) for general structural patterns and [`03`](03-software-design-principles.md) for composition-over-inheritance and code-level design. Working in the Godot engine specifically? [`11`](11-godot-engine-notes.md) maps [`10`](10-game-architecture.md)'s patterns onto it.
 
 Every entry is self-contained, so you can also jump directly to any principle.
 
@@ -50,7 +50,8 @@ Every entry is self-contained, so you can also jump directly to any principle.
 | **[07 — Security, Reliability, Operations & Delivery](07-security-reliability-operations.md)** | Secure SDLC/NIST SSDF, threat modeling, identity, supply chain, SLO/SLI/error budgets, observability, alerting, incident response, continuous delivery, trunk-based dev, feature flags, DB change management, cost, sustainability | Running software safely in production |
 | **[08 — Checklists & Templates](08-checklists-and-templates.md)** | ADR template, review checklists, quality-attribute scenarios, technology selection rubric, readiness checklists, build-vs-buy template, pattern selection matrix, operational readiness review | Turning principles into concrete decisions |
 | **[09 — References](09-references.md)** | Authoritative sources by category, with how each informed the guide; source-evaluation guidance | Verifying claims against primary sources |
-| **[10 — Game Architecture](10-game-architecture.md)** | Sim/presentation separation, fixed-tick pipeline, command pattern for replay, ECS vs node composition, game state machines, event-driven communication, data-driven content pipeline, async-PvP netcode patterns, game-specific quality attributes | Architecting a real-time or turn-based game/simulation |
+| **[10 — Game Architecture](10-game-architecture.md)** | Sim/presentation separation, fixed-tick pipeline, command pattern for replay, determinism requirements, ECS vs node composition, state machines & AI decision architectures, data-driven content, procedural generation, save persistence/versioning, async-PvP & real-time netcode models, performance patterns, frame budgets, asset pipeline, game testing, game-specific quality attributes | Architecting a real-time or turn-based game/simulation |
+| **[11 — Godot Engine Notes](11-godot-engine-notes.md)** | **Engine-specific, time-sensitive** (verified against Godot 4.7): scenes/nodes/signals, `_physics_process` & physics interpolation, custom Resources & mod security, entity-count scaling ladder (nodes → Servers → ECS addons), determinism caveats, high-level multiplayer, GDScript/C#/GDExtension selection | Applying [`10`](10-game-architecture.md)'s patterns in Godot specifically |
 
 ---
 
@@ -124,12 +125,22 @@ Jump to the right section based on the question you're trying to answer.
 | Question | Go to |
 |---|---|
 | How do I keep simulation reproducible/testable? | [10 §1](10-game-architecture.md#1-simulationpresentation-separation), [10 §2](10-game-architecture.md#2-fixed-tick-update-pipeline) |
-| How do I support replay / deterministic multiplayer? | [10 §3](10-game-architecture.md#3-command-pattern-for-deterministic-replay) |
-| ECS or scene-graph/node composition? | [10 §4](10-game-architecture.md#4-entity-modeling-ecs-vs-scene-graphnode-composition) |
-| How do I model combat/AI/UI modes? | [10 §5](10-game-architecture.md#5-state-machines-for-game-logic) |
-| How should content (items/skills/enemies) be authored? | [10 §6](10-game-architecture.md#6-data-driven-content-pipeline) |
-| Async/snapshot-based PvP architecture? | [10 §8](10-game-architecture.md#8-netcode-patterns-for-asynchronous--replay-based-multiplayer) |
-| What quality attributes does a game add? | [10 §9](10-game-architecture.md#9-game-specific-quality-attributes) |
+| How do I support replay / deterministic multiplayer? | [10 §3](10-game-architecture.md#3-command-pattern-for-deterministic-replay), [10 §4](10-game-architecture.md#4-determinism-requirements) |
+| What are the concrete determinism rules (RNG, ordering, floats)? | [10 §4](10-game-architecture.md#4-determinism-requirements) |
+| ECS or scene-graph/node composition? | [10 §5](10-game-architecture.md#5-entity-modeling-ecs-vs-scene-graphnode-composition) |
+| How do I model combat/AI/UI modes? | [10 §6](10-game-architecture.md#6-state-machines-for-game-logic) |
+| Which AI architecture (BT/utility/GOAP/influence maps/MCTS)? | [10 §7](10-game-architecture.md#7-game-ai-decision-architectures) |
+| How should content (items/skills/enemies) be authored? | [10 §8](10-game-architecture.md#8-data-driven-content-pipeline) |
+| How do I structure procedural generation (seeds, validation)? | [10 §9](10-game-architecture.md#9-procedural-generation-architecture) |
+| How do I make saves survive updates and crashes? | [10 §11](10-game-architecture.md#11-save-data-persistence--versioning) |
+| Async/snapshot-based PvP architecture? | [10 §12](10-game-architecture.md#12-netcode-patterns-for-asynchronous--replay-based-multiplayer) |
+| Live multiplayer: lockstep, rollback, prediction, or snapshots? | [10 §13](10-game-architecture.md#13-real-time-netcode-models) |
+| Pooling / spatial partitioning / data locality — when? | [10 §14](10-game-architecture.md#14-performance-patterns-pooling-spatial-partitioning-data-locality) |
+| How do I own the frame budget (hitches, mobile thermal)? | [10 §15](10-game-architecture.md#15-frame-budget--profiling-discipline) |
+| Asset pipeline, memory budgets, streaming? | [10 §16](10-game-architecture.md#16-asset-pipeline--content-streaming) |
+| How do I test a game automatically (golden replays, fuzzing)? | [10 §17](10-game-architecture.md#17-testing--verification-for-games) |
+| What quality attributes does a game add? | [10 §18](10-game-architecture.md#18-game-specific-quality-attributes) |
+| How does all this map onto Godot? | [11](11-godot-engine-notes.md) |
 
 ### Resolving Trade-offs & Operations
 
@@ -214,6 +225,7 @@ flowchart TB
 | **Anti-Corruption Layer (ACL)** | Translation layer protecting a domain model from a foreign/legacy model |
 | **ATAM** | Architecture Tradeoff Analysis Method |
 | **Backpressure** | Mechanism for a slow consumer to signal a fast producer to slow down |
+| **Behavior tree (BT)** | Hierarchical AI structure of selector/sequence/condition nodes; industry default for reactive character behavior ([10 §7](10-game-architecture.md#7-game-ai-decision-architectures)) |
 | **BFF** | Backend-for-Frontend — a gateway tailored to a specific client type |
 | **Bounded Context** | DDD boundary within which a model/language is consistent |
 | **Bulkhead** | Resource isolation pattern limiting failure blast radius |
@@ -231,14 +243,17 @@ flowchart TB
 | **DAMP** | Descriptive And Meaningful Phrases — readability over DRY in tests |
 | **DDD** | Domain-Driven Design |
 | **Dependency Injection (DI)** | Supplying dependencies from outside rather than constructing them internally |
+| **Determinism (simulation)** | Same initial state + inputs + seed → bit-identical output on every run ([10 §4](10-game-architecture.md#4-determinism-requirements)) |
 | **DORA metrics** | Deployment frequency, lead time, change failure rate, time to restore |
 | **DRY** | Don't Repeat Yourself |
-| **ECS** | Entity-Component-System — data-oriented game object model: entities are IDs, components are data, systems operate over component arrays ([10 §4](10-game-architecture.md#4-entity-modeling-ecs-vs-scene-graphnode-composition)) |
+| **ECS** | Entity-Component-System — data-oriented game object model: entities are IDs, components are data, systems operate over component arrays ([10 §5](10-game-architecture.md#5-entity-modeling-ecs-vs-scene-graphnode-composition)) |
 | **Electron** | Desktop framework bundling Chromium + Node.js; web UI, large footprint |
 | **Error budget** | Allowed unreliability (1 − SLO), spent on releases/risk |
 | **Event Sourcing** | Persisting state as an append-only sequence of events |
 | **Fitness function** | Automated test that verifies an architectural characteristic |
-| **FSM** | Finite State Machine — explicit states + legal transitions modeling mutually-exclusive modes ([10 §5](10-game-architecture.md#5-state-machines-for-game-logic)) |
+| **FSM** | Finite State Machine — explicit states + legal transitions modeling mutually-exclusive modes ([10 §6](10-game-architecture.md#6-state-machines-for-game-logic)) |
+| **GOAP** | Goal-Oriented Action Planning — AI plans an action sequence from goals + preconditions/effects at runtime ([10 §7](10-game-architecture.md#7-game-ai-decision-architectures)) |
+| **Golden replay** | Recorded (seed + command log + state checksum) re-run in CI to detect unintended simulation changes ([10 §17](10-game-architecture.md#17-testing--verification-for-games)) |
 | **GRASP** | General Responsibility Assignment Software Patterns |
 | **HATEOAS** | Hypermedia As The Engine Of Application State (REST maturity Level 3) |
 | **Hexagonal / Ports & Adapters** | Architecture isolating a domain core behind ports/adapters |
@@ -258,6 +273,7 @@ flowchart TB
 | **OAuth2 / OIDC** | Authorization framework / authentication layer on top of it |
 | **Offline-first** | Local machine is source of truth; network is an enhancement; sync when online |
 | **OCP** | Open–Closed Principle |
+| **Object pool** | Pre-allocated reusable instances replacing per-frame allocation/GC churn ([10 §14](10-game-architecture.md#14-performance-patterns-pooling-spatial-partitioning-data-locality)) |
 | **OWASP** | Open Worldwide Application Security Project (Top 10 risks) |
 | **PACELC** | Extension of CAP adding the latency-vs-consistency trade-off in normal operation |
 | **PoEAA** | Patterns of Enterprise Application Architecture (Fowler) |
@@ -266,6 +282,7 @@ flowchart TB
 | **RBAC / ABAC** | Role-Based / Attribute-Based Access Control |
 | **RED / USE methods** | Rate-Errors-Duration (services) / Utilization-Saturation-Errors (resources) |
 | **Repository** | Pattern mediating between domain and data mapping |
+| **Rollback (netcode)** | Predict remote inputs, simulate immediately, re-simulate from confirmed state on misprediction — zero perceived input lag ([10 §13](10-game-architecture.md#13-real-time-netcode-models)) |
 | **RTO / RPO** | Recovery Time / Point Objective |
 | **Saga** | Distributed transaction via local steps + compensating actions |
 | **Sandboxing** | OS-enforced restriction of an app's access (App Sandbox, AppContainer, Flatpak/Snap) |
@@ -274,6 +291,7 @@ flowchart TB
 | **SLI / SLO / SLA** | Service Level Indicator / Objective / Agreement |
 | **SoC** | Separation of Concerns |
 | **SOLID** | SRP, OCP, LSP, ISP, DIP — five OO design principles |
+| **Spatial partition** | Grid/tree structure mapping positions to entities, replacing O(n²) proximity scans ([10 §14](10-game-architecture.md#14-performance-patterns-pooling-spatial-partitioning-data-locality)) |
 | **SPOF** | Single Point Of Failure |
 | **SRP** | Single Responsibility Principle |
 | **SSDF** | NIST Secure Software Development Framework |
@@ -283,6 +301,7 @@ flowchart TB
 | **Technical debt** | Implied future cost of an expedient solution now |
 | **Transactional Outbox** | Atomically write state + outbound message, then publish asynchronously |
 | **Trunk-Based Development** | Frequent integration to main with short-lived branches |
+| **Utility AI** | Score candidate actions from weighted, normalized considerations; pick the best ([10 §7](10-game-architecture.md#7-game-ai-decision-architectures)) |
 | **WCAG / POUR** | Web Content Accessibility Guidelines / Perceivable-Operable-Understandable-Robust |
 | **XDG Base Directory** | Linux/freedesktop spec for standard config/data/cache locations |
 | **YAGNI** | You Aren't Gonna Need It |

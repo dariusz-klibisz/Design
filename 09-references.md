@@ -2,7 +2,7 @@
 
 This reference synthesizes established, widely recognized sources in software architecture and engineering. The guide summarizes and integrates these sources; it does not reproduce them wholesale. Use them as **inputs to decisions, not absolute rules** — every source assumes a context.
 
-*Last verified: 2026-06-25.*
+*Last verified: 2026-07-10.*
 
 ---
 
@@ -122,20 +122,67 @@ This reference synthesizes established, widely recognized sources in software ar
 
 ## Game Architecture
 
-- **Glenn Fiedler** — "Fix Your Timestep!", "Deterministic Lockstep", "Floating
-  Point Determinism" — https://gafferongames.com/
+Simulation, determinism & netcode:
+
+- **Glenn Fiedler** — "Fix Your Timestep!", "Deterministic Lockstep",
+  "Snapshot Interpolation", "Floating Point Determinism", and the
+  networked-physics series — https://gafferongames.com/ (newer material at
+  https://mas-bandwidth.com/).
+- **Gabriel Gambetta** — *Fast-Paced Multiplayer* series (authoritative
+  servers, client-side prediction & server reconciliation, entity
+  interpolation, lag compensation) —
+  https://www.gabrielgambetta.com/client-server-game-architecture.html
+- **Tony Cannon** — GGPO rollback networking SDK (input prediction +
+  speculative execution + re-simulation) — https://github.com/pond3r/ggpo
+- **Blizzard Entertainment** — "Overwatch Gameplay Architecture and Netcode"
+  (GDC 2017; production ECS + deterministic netcode case study).
+
+Patterns, entity modeling & data-oriented design:
+
 - **Robert Nystrom** — *Game Programming Patterns* (Game Loop, Update Method,
   Command, State, Observer, Event Queue, Component, Type Object, Double
-  Buffer) — https://gameprogrammingpatterns.com/
+  Buffer, Object Pool, Spatial Partition, Data Locality, Dirty Flag) —
+  https://gameprogrammingpatterns.com/
+- **Sander Mertens** — *ECS FAQ* (archetype vs sparse-set implementations,
+  EC-vs-ECS distinction, data-oriented-design glossary, production users) —
+  https://github.com/SanderMertens/ecs-faq
 - **Adam Martin** — "Entity Systems are the future of MMOG development"
-  (ECS rationale).
-- **Damian Isla** — "Handling Complexity in the Halo 2 AI" (GDC talk;
+  (ECS rationale) — https://t-machine.org/
+- **Scott Bilas** — "A Data-Driven Game Object System" (GDC 2002; the
+  component/data-driven game-object lineage Adam Martin credits).
+- **Richard Fabian** — *Data-Oriented Design* (free online book) —
+  https://www.dataorienteddesign.com/dodbook/
+- **Mike Acton** — "Data-Oriented Design and C++" (CppCon 2014 talk).
+- **Jason Gregory** — *Game Engine Architecture* (engine subsystems, resource/
+  asset pipelines, serialization; the standard industry textbook).
+
+Game AI:
+
+- **Steve Rabin (ed.)** — *Game AI Pro* series, all chapters free online
+  (behavior selection overview, utility theory, behavior-tree starter kit,
+  HTN planners, influence maps, context steering, flow-field crowds, MCTS,
+  automated AI testing, autoplay agents for tuning, PCG overview) —
+  http://www.gameaipro.com/
+- **Damian Isla** — "Handling Complexity in the Halo 2 AI" (GDC 2005;
   behavior trees).
+- **Jeff Orkin** — GOAP (Goal-Oriented Action Planning) applied in *F.E.A.R.*
+
+Engine documentation (for [`11`](11-godot-engine-notes.md); time-sensitive):
+
+- **Godot Engine** — official documentation, *Best practices*, *Physics
+  interpolation*, *High-level multiplayer*, *Runtime file loading and saving*
+  — https://docs.godotengine.org/en/stable/ (verified against Godot 4.7).
+- **Juan Linietsky** — "Why isn't Godot an ECS-based game engine?"
+  (godotengine.org blog, 2021; nodes-vs-ECS reasoning and the servers
+  architecture).
 
 *Used for:* sim/presentation separation, fixed-tick update pipelines, the
-command pattern for deterministic replay, ECS vs scene-graph/node composition,
-game state machines, and async-PvP netcode-as-deterministic-replay reasoning
-in [`10`](10-game-architecture.md).
+command pattern for deterministic replay, determinism requirements, ECS vs
+scene-graph/node composition, AI decision architectures, data-driven content
+and procedural generation, save persistence, async-PvP and real-time netcode
+models, performance patterns, frame-budget/profiling and asset-pipeline
+discipline, and game testing in [`10`](10-game-architecture.md); and the
+engine mapping in [`11`](11-godot-engine-notes.md).
 
 ---
 

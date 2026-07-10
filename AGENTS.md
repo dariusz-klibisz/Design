@@ -14,7 +14,7 @@ Humans are welcome to read it too. For orientation, start with
 
 ## Structure & conventions
 
-- Files are numbered `00`–`09` (see the file map in [`README.md`](README.md)). The
+- Files are numbered `00`–`11` (see the file map in [`README.md`](README.md)). The
   numbering is a stable ordering; **do not renumber or rename files** without updating
   every cross-reference.
 - [`00-index.md`](00-index.md) is the canonical index: file table, *Decision
@@ -51,6 +51,12 @@ When modifying content in this repo:
 5. **Stay technology-agnostic.** Avoid framework- or version-specific claims unless the
    surrounding text is explicitly marked as time-sensitive (e.g., Core Web Vitals
    thresholds, framework footprints). Prefer durable reasoning over current trivia.
+   Engine/framework-specific guidance is allowed only in files whose header explicitly
+   marks them as engine-specific and time-sensitive (currently
+   [`11-godot-engine-notes.md`](11-godot-engine-notes.md)); such files must state the
+   verified version and date, and must link back to the agnostic pattern they map.
+   This repository must also stay **self-contained**: never link to files outside the
+   repository (e.g. sibling repos or local paths).
 6. **Match the existing tone.** Neutral, concise, technical. No marketing language, no
    emojis, no first-person voice.
 7. **Frame everything as a trade-off.** If an entry presents only upsides, add the costs,
