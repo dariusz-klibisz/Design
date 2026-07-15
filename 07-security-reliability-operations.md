@@ -23,6 +23,16 @@ Define security requirements early; threat-model significant features; use secur
 #### Common mistakes
 Security review only right before launch; treating scanner output *as* the security program; no owner for vulnerability response; production secrets available to all developers.
 
+#### Standards & maturity models
+SSDF is a US-government-originated framework; several international/industry counterparts cover overlapping ground and are worth knowing when a customer, auditor, or RFP names them specifically:
+- **ISO/IEC 27034** — application security integrated into the SDLC, the ISO counterpart to SSDF.
+- **ISO/IEC 27001 / 27002:2022** — certifiable information security management system (27001) plus its control catalog (27002, reorganized into 4 themes in the 2022 revision). Broader than SSDF/27034 — covers organizational security, not just software delivery.
+- **NIST Cybersecurity Framework (CSF) 2.0** — six functions (Govern, Identify, Protect, Detect, Respond, Recover); framework-agnostic and widely adopted as an assessment lens.
+- **NIST SP 800-53** / **CIS Controls** — detailed control catalogs (800-53 underlies FedRAMP; CIS Controls are a lighter, prioritized practitioner list).
+- **OWASP SAMM** / **BSIMM** — maturity models for measuring and improving a software-security program over time; useful for **phasing** SSDF/27034 adoption rather than trying to do everything at once.
+
+Treat these as complementary lenses, not a checklist to satisfy simultaneously — pick the one your audit/customer/regulator actually asks for and let it drive scope. Full crosswalk: [`13` §4](13-standards-crosswalk.md#4-security--management-application-and-sdlc-standards).
+
 #### Sources
 NIST SSDF; OWASP ASVS; OWASP Top 10 ([04 §7](04-web-application-design.md#7-web-application-security)).
 
@@ -37,10 +47,13 @@ Identify what can go wrong, how likely and damaging it is, and what controls are
 New architecture; authentication/authorization changes; payment, PII, secrets, file upload, admin features; desktop IPC and native integration; third-party integrations.
 
 #### Guidance
-Identify assets, actors, trust boundaries, data flows, and abuse cases. For each dependency, ask: what if it is malicious, compromised, slow, or unavailable? Record mitigations and residual risk; revisit when architecture changes. (Frameworks like STRIDE help enumerate threat categories.)
+Identify assets, actors, trust boundaries, data flows, and abuse cases. For each dependency, ask: what if it is malicious, compromised, slow, or unavailable? Record mitigations and residual risk; revisit when architecture changes. **STRIDE** (Spoofing, Tampering, Repudiation, Information disclosure, Denial of service, Elevation of privilege) is the standard general-purpose category set. Two complementary methodologies are worth knowing for specific needs: **LINDDUN** applies the same style of systematic enumeration to **privacy** threats (linkability, identifiability, non-repudiation, detectability, disclosure, unawareness, non-compliance) — reach for it whenever the system handles personal data; **PASTA** (Process for Attack Simulation and Threat Analysis) is a heavier, risk-centric, 7-stage methodology emphasizing business-impact analysis — reach for it on high-stakes systems where STRIDE's speed isn't worth the shallower business-risk coverage. Validate coverage of realistic adversary behavior against **MITRE ATT&CK**'s catalog of observed tactics and techniques, especially when tuning detections ([§6](#6-observability)).
 
 #### Common mistakes
 No diagram of trust boundaries; only considering external attackers; ignoring insider, supply-chain, and client-side threats.
+
+#### Sources
+STRIDE (Microsoft); LINDDUN (linddun.org); PASTA; MITRE ATT&CK. Full crosswalk: [`13` §5](13-standards-crosswalk.md#5-threat-modeling).
 
 ---
 
@@ -68,6 +81,14 @@ Your software includes dependencies, build tools, CI/CD actions, containers, run
 
 #### Guidance
 Maintain a dependency inventory; use lockfiles and reproducible builds where feasible; scan dependencies and containers; pin CI actions and base images by digest; protect signing keys; require code review for dependency changes; generate an **SBOM** for serious products; monitor vulnerability disclosures.
+
+#### Standards & frameworks
+- **SLSA (Supply-chain Levels for Software Artifacts)** — a graduated framework (build provenance documentation up through hardened, tamper-resistant build platforms) for reasoning about *how much* to trust a given artifact's build process. Adopt incrementally; don't aim for the top level on day one.
+- **SBOM formats: SPDX and CycloneDX** — the two dominant machine-readable SBOM formats (Linux Foundation and OWASP respectively). Generate one of these, not a bespoke format, so downstream tooling and customers can consume it.
+- **in-toto** — an attestation framework (signed JSON statements covering builder identity, source commit, build parameters, artifact digest) commonly used to carry SLSA provenance end-to-end.
+- **Regulatory drivers:** **US Executive Order 14028** pushed SBOM/provenance requirements into US federal procurement; the **EU Cyber Resilience Act (CRA)** imposes security-by-design, vulnerability-handling, and SBOM-adjacent obligations on products with digital elements sold in the EU, phasing in through 2027 — relevant to any shipped desktop ([05 §11](05-desktop-application-design.md#11-packaging-distribution--updates)) or mobile ([12 §11](12-mobile-application-design.md#11-packaging-signing-store-submission--release)) product, not just cloud services.
+
+SLSA and SBOM are **complementary, not alternatives**: SBOM tells you what's *in* an artifact; SLSA/in-toto attest to how it was *built* and that it wasn't tampered with afterward. Full crosswalk: [`13` §6](13-standards-crosswalk.md#6-supply-chain-security).
 
 #### Common mistakes
 CI tokens with excessive permissions; pulling `latest` images without digest pinning; no owner for transitive dependency upgrades; build artifacts not signed or verified.
@@ -135,6 +156,9 @@ Searching for a person to blame; no timeline; vague or never-completed postmorte
 
 #### Sources
 Google SRE book.
+
+#### Standards counterparts
+The SLO/incident/delivery practices in §5–§9 map onto two certifiable/formal frameworks worth knowing: **ISO/IEC 20000** (certifiable IT service management system) and its practitioner-level counterpart **ITIL 4** (a widely adopted, non-certifiable-for-orgs service-management practice framework) — reach for these when a customer or auditor expects a named service-management standard rather than "we follow SRE practices." For risk management specifically, **ISO 31000** gives domain-agnostic risk-management principles and process, and **ISO/IEC 27005** specializes it to information security, aligned with the 27001 ISMS ([§1](#1-secure-software-development-lifecycle-ssdf)). Full crosswalk: [`13` §9](13-standards-crosswalk.md#9-service-management--risk).
 
 ---
 
@@ -233,8 +257,33 @@ AWS/Azure/Google Cloud Well-Architected sustainability and cost guidance.
 
 ---
 
+## 16. Named Compliance Frameworks
+
+#### Summary
+Beyond general engineering/security standards, specific **domain- or jurisdiction-scoped** compliance frameworks apply only when a system falls in their scope — knowing which apply (and which don't) is itself a risk-reduction step: over-claiming compliance you don't need wastes effort, and missing one you do need is a real liability.
+
+#### Guidance
+| Framework | Applies when… | Relationship to this guide's practices |
+|---|---|---|
+| **PCI-DSS** | The system stores, processes, or transmits **payment card data**. | Strong overlap with [§1](#1-secure-software-development-lifecycle-ssdf) secure SDLC, [§4](#4-supply-chain-security) supply chain, and encryption/access-control practices in [04 §7](04-web-application-design.md#7-web-application-security); prefer *not* touching card data directly (tokenize via a PCI-compliant processor) over taking on PCI scope yourself. |
+| **HIPAA** | The system handles US **protected health information (PHI)** as a covered entity or business associate. | Overlaps with [§3](#3-authentication-authorization-and-identity) access control, audit logging, and encryption at rest/in transit; requires signed Business Associate Agreements with subprocessors. |
+| **SOC 2** | A vendor needs to demonstrate controls (Security, Availability, Processing Integrity, Confidentiality, Privacy — the "trust services criteria") to **enterprise customers** — commonly a sales/procurement requirement, not a legal mandate. | Largely operationalizes [§1](#1-secure-software-development-lifecycle-ssdf), [§5–8](#5-slos-slis-and-error-budgets) reliability/incident practices, and access-control evidence — many teams find they're "SOC 2 ready" once they've genuinely adopted this file's practices and just need to document/evidence them. |
+| **FedRAMP / StateRAMP** | Selling cloud services to **US federal/state government**. | Built on **NIST SP 800-53** control baselines ([§1](#1-secure-software-development-lifecycle-ssdf)); the heaviest-weight of this list — budget for a long authorization timeline. |
+
+#### Common mistakes
+Pursuing a compliance framework speculatively before a customer/regulator actually requires it (opportunity cost); assuming ISO 27001 certification automatically satisfies a different framework's specific control language without a gap assessment; letting compliance checklists substitute for the underlying security practice rather than evidencing it.
+
+#### Related: privacy management
+Where a system is in scope for GDPR/CCPA-style privacy obligations ([04 §12](04-web-application-design.md#12-privacy--data-minimization)), **ISO/IEC 27701** extends the 27001 ISMS ([§1](#1-secure-software-development-lifecycle-ssdf)) into a certifiable **Privacy Information Management System (PIMS)** — the formal management-system counterpart to those legal obligations, useful when a customer or auditor wants evidence of a systematic privacy program rather than a policy document alone.
+
+#### Sources
+PCI Security Standards Council; HHS (HIPAA); AICPA (SOC 2); FedRAMP.gov. Full crosswalk: [`13` §10](13-standards-crosswalk.md#10-named-compliance-frameworks-domainjurisdiction-specific).
+
+---
+
 ## Key Cross-References
 - **Quality attributes & trade-offs:** [`06`](06-quality-attributes-tradeoffs.md).
-- **Web & desktop security/observability:** [`04`](04-web-application-design.md), [`05`](05-desktop-application-design.md).
+- **Web & desktop security/observability:** [`04`](04-web-application-design.md), [`05`](05-desktop-application-design.md), [`12`](12-mobile-application-design.md).
 - **Delivery process & flags in code terms:** [`03` §11](03-software-design-principles.md#11-development-process--collaboration).
 - **Operational checklists:** [`08`](08-checklists-and-templates.md) (security, reliability, operational readiness).
+- **Standards crosswalk (27001/27034/CSF/SLSA/SBOM/compliance):** [`13`](13-standards-crosswalk.md).

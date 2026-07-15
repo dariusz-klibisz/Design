@@ -690,6 +690,8 @@ Zhamak Dehghani, *Data Mesh*.
 
 Cloud design principles assume failure is inevitable: design for self-healing, redundancy, minimal coordination, scale-out, partitioning around limits, and operability.
 
+> **Standards:** these patterns are how a system earns the **Reliability** characteristic of **ISO/IEC 25010** (maturity, availability, fault tolerance, recoverability — [06 §2](06-quality-attributes-tradeoffs.md#2-the-quality-attributes-catalog)); **ISO/IEC 5055** ([03 §10](03-software-design-principles.md#103-technical-debt)) measures reliability weaknesses directly from source-code structure as a static complement to runtime resilience testing. See [`13` §1](13-standards-crosswalk.md#1-quality-models--measurement-square-series).
+
 ### 7.1 Design for Self-Healing & Redundancy
 
 - **Self-healing:** assume failures; auto-detect, isolate, and recover via retries, health checks, circuit breakers, bulkheads, and failover.
@@ -780,6 +782,9 @@ DDD tackles complexity in the **core domain** through **strategic design** (boun
 #### Caution
 Avoid cargo-culting tactical patterns onto a CRUD app. DDD's biggest payoff is usually strategic — finding the right boundaries.
 
+#### Documenting bounded contexts
+Bounded contexts and context maps are naturally expressed as **viewpoints/views** in the **ISO/IEC/IEEE 42010** sense ([01 §9.2b](01-architecture-principles.md#92b-the-formal-standard-behind-views-isoiecieee-42010)) — a context map is effectively a dedicated viewpoint addressing the "how do our domain models relate" stakeholder concern.
+
 #### Sources
 Eric Evans, *Domain-Driven Design*; Vaughn Vernon, *Implementing DDD*.
 
@@ -868,4 +873,4 @@ Letting external IDs/statuses leak everywhere; no tests for translation rules; A
 
 ## Sources
 
-- Azure *Cloud Design Patterns*; microservices.io pattern language; Martin Fowler architecture articles; AWS/Azure/Google Well-Architected frameworks; Sam Newman, *Building Microservices* / *Monolith to Microservices*; Eric Evans, *Domain-Driven Design*; Unmesh Joshi, *Patterns of Distributed Systems*. Full list in [`09`](09-references.md).
+- Azure *Cloud Design Patterns*; microservices.io pattern language; Martin Fowler architecture articles; AWS/Azure/Google Well-Architected frameworks; Sam Newman, *Building Microservices* / *Monolith to Microservices*; Eric Evans, *Domain-Driven Design*; Unmesh Joshi, *Patterns of Distributed Systems*. Full list in [`09`](09-references.md). International-standards crosswalk: [`13`](13-standards-crosswalk.md).

@@ -40,6 +40,10 @@ Cost impact.
 How will we know if this works?
 What metrics, tests, or fitness functions apply?
 
+## Standards / Compliance Impact (optional)
+Does this decision engage a named standard or compliance framework
+(ISO/IEC 25010, 27001, WCAG, PCI-DSS, GDPR, etc.)? See [`13`](13-standards-crosswalk.md).
+
 ## Review Date
 When should we revisit this?
 
@@ -164,7 +168,7 @@ Use this **before** splitting services ([02 §4.2](02-architecture-patterns.md#4
 - [ ] JavaScript bundle size monitored.
 - [ ] Third-party scripts reviewed.
 
-### Accessibility
+### Accessibility (WCAG 2.2 AA)
 - [ ] Semantic HTML used.
 - [ ] Keyboard navigation works.
 - [ ] Focus states visible.
@@ -172,6 +176,7 @@ Use this **before** splitting services ([02 §4.2](02-architecture-patterns.md#4
 - [ ] Color contrast sufficient (≥ 4.5:1 for text).
 - [ ] Screen-reader smoke tests cover critical flows.
 - [ ] Motion preferences respected.
+- [ ] Conforms to current **WCAG 2.2 Level AA** (verify version currency — [`13` §8](13-standards-crosswalk.md#8-accessibility)); EU-facing products also check **EN 301 549 / European Accessibility Act** scope.
 
 ### Security (OWASP Top 10:2025)
 - [ ] Authentication and authorization server-enforced.
@@ -387,6 +392,68 @@ Pairs with the **Strangler Fig** and **Anti-Corruption Layer** patterns ([02 §4
 
 ---
 
+## 17. Mobile Application Checklist
+
+Mirrors the [Web](#7-web-application-checklist) and [Desktop](#8-desktop-application-checklist) checklists for the mobile surface ([`12`](12-mobile-application-design.md)).
+
+### Lifecycle & State
+- [ ] UI state survives rotation/configuration change.
+- [ ] UI state survives process death while backgrounded (`ViewModel`+`SavedStateHandle` / scene restoration).
+- [ ] Background work uses the OS scheduler (`WorkManager`/`BGTaskScheduler`), not polling or wake-locks.
+
+### Offline & Sync
+- [ ] Offline behavior defined (read-only, queued writes, or explicit hard failure).
+- [ ] Sync conflict-resolution strategy chosen deliberately (not silent LWW).
+- [ ] Sync status visible to the user.
+
+### Security (OWASP MASVS)
+- [ ] Meets **MASVS-L1** baseline at minimum; **L2**/**R (Resilience)** assessed for finance/health/high-value apps.
+- [ ] Secrets stored in Keychain (iOS) / Keystore + EncryptedSharedPreferences (Android) — never in `UserDefaults`/`SharedPreferences`/the binary.
+- [ ] No API keys or backend credentials embedded in the client.
+- [ ] Server-side enforcement of every security-relevant decision (not client-side checks alone).
+- [ ] Certificate/TLS validation enabled in the production build.
+
+### Performance
+- [ ] Cold-start time measured.
+- [ ] Profiled on real low/mid-tier devices, not just flagship simulators/emulators.
+- [ ] Battery/network impact reviewed (no unnecessary polling, GPS, or wakeups).
+
+### Accessibility
+- [ ] VoiceOver (iOS) / TalkBack (Android) smoke-tested on critical flows.
+- [ ] Touch targets meet minimum size guidance.
+- [ ] Dynamic type / font scaling supported.
+
+### Release
+- [ ] Signing key (upload key / provisioning) protected outside the repo.
+- [ ] Staged rollout used (Play rollout %, iOS phased release), with crash/ANR monitoring before ramping.
+- [ ] Minimum-supported-client-version policy defined for server APIs.
+- [ ] Store policy compliance reviewed (permission justification, data-use disclosures).
+
+---
+
+## 18. Standards Conformance Triage
+
+A fast way to determine **which standards/compliance frameworks actually apply** to a system, before treating any of them as required work. Run through this once at project kickoff or a major architecture review; record the answers in an ADR.
+
+| Question | If yes → relevant standard(s) |
+|---|---|
+| Does the system process, store, or transmit **payment card data**? | PCI-DSS |
+| Does it handle **US protected health information**? | HIPAA |
+| Do enterprise customers require a **trust report**? | SOC 2 |
+| Does it sell cloud services to **US federal/state government**? | FedRAMP/StateRAMP |
+| Does it process **EU residents' personal data**? | GDPR, and consider ISO/IEC 27701 (PIMS) |
+| Does it process **California residents' personal data**? | CCPA/CPRA |
+| Is it a **public-facing web/native app** with a general audience? | WCAG 2.2 AA; EU-facing also EN 301 549 / European Accessibility Act |
+| Does it ship a **desktop or mobile binary** to end users? | Code signing; SLSA provenance + SBOM; EU CRA if sold in the EU |
+| Does an audit/customer/regulator expect a **named security management standard**? | ISO/IEC 27001/27002, or NIST CSF 2.0 |
+| Does the system have **physical, financial, or life-safety consequences** on fault? | Domain-specific functional-safety standards (IEC 61508, ISO 26262, DO-178C, IEC 62304) — beyond this guide's scope |
+| Does a contract or regulator require a **named process/testing standard**? | ISO/IEC/IEEE 12207/15288 (life cycle); 29119 (testing, contested — see [`13` §3](13-standards-crosswalk.md#3-software-testing)) |
+
+Full detail and "what the standard adds" for every row: [`13` — Standards Crosswalk](13-standards-crosswalk.md).
+
+---
+
 ## Key Cross-References
 - **Principles & patterns** the checklists enforce: [`01`](01-architecture-principles.md), [`02`](02-architecture-patterns.md).
 - **Quality targets:** [`06`](06-quality-attributes-tradeoffs.md). **Security/reliability/delivery:** [`07`](07-security-reliability-operations.md).
+- **Mobile:** [`12`](12-mobile-application-design.md). **Standards crosswalk:** [`13`](13-standards-crosswalk.md).

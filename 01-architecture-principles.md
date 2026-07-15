@@ -335,7 +335,7 @@ Never *ignore* data ownership for production systems. The rigor can vary, but ow
 - Ignoring data retention and deletion (privacy risk).
 
 #### Sources
-microservices.io (database-per-service, shared database, CQRS, saga); Well-Architected frameworks.
+microservices.io (database-per-service, shared database, CQRS, saga); Well-Architected frameworks. For a formal data-quality vocabulary (accuracy, completeness, consistency, currentness, traceability…), see **ISO/IEC 25012** (data quality model) — [`13` §1](13-standards-crosswalk.md#1-quality-models--measurement-square-series).
 
 > *(Section numbering jumps to align with the patterns file: structural and distribution patterns live in [`02`](02-architecture-patterns.md). Sections 5–7 of the original architecture material — layering, communication, data, resilience — are consolidated there.)*
 
@@ -390,6 +390,36 @@ Different audiences need different views; one diagram cannot explain everything.
 
 #### Sources
 Simon Brown, *The C4 Model* (c4model.com).
+
+---
+
+### 9.2b The Formal Standard Behind "Views": ISO/IEC/IEEE 42010
+
+#### Summary
+**ISO/IEC/IEEE 42010:2022** is the international standard for architecture description. It doesn't prescribe a specific diagramming notation; instead it defines the *conceptual model* that C4, the 4+1 view model, arc42, and similar frameworks all instantiate.
+
+#### Description
+The 42010 model: identify **stakeholders** → elicit their **concerns** → (as of the 2022 edition) group concerns by **stakeholder perspective** → define **viewpoints** as reusable templates for addressing a class of concern → produce **views** as concrete instances of a viewpoint for *this* system → state **correspondence rules** between views that must stay consistent. An **architecture description (AD)** is the complete set of views plus the rationale connecting them back to concerns.
+
+Concrete frameworks map onto this model:
+- **C4** ([§9.2](#92-the-c4-model)) — four fixed viewpoints (context/container/component/code) at increasing zoom.
+- **4+1 (Kruchten)** — five views (logical, process, development, physical, + scenarios) for classic enterprise systems.
+- **arc42** — a documentation template covering constraints, context, building blocks, runtime, deployment, cross-cutting concepts, decisions, quality requirements, risks, and glossary — closer to a full AD than a single viewpoint set.
+- **Views and Beyond (SEI)** — the academic/practitioner source both 4+1 and 42010 draw from.
+
+An **ADR** ([§9.1](#91-architecture-decision-records-adrs)) is the mechanism 42010 expects for capturing architecture *rationale* — the standard requires an AD to record the reasoning behind selected views, not just the views themselves.
+
+#### When to use
+Use C4 or arc42 (lightweight, team-scoped) for most product teams. Reach for the full 42010 model explicitly — naming stakeholders/concerns/viewpoints formally — when an external audit, regulator, or enterprise-architecture review expects a standards-referenced architecture description, or when multiple independent teams need a shared, disciplined documentation contract.
+
+For **enterprise-wide** (not single-system) architecture governance, **TOGAF** (Open Group Architecture Framework, with its ADM phases) or the **Zachman Framework** (a classification taxonomy) are the heavier-weight tools — they operate at a different scope than 42010/C4 and carry meaningfully more process overhead; reach for them only when whole-enterprise alignment, not a single system's architecture, is the actual goal.
+
+#### Common mistakes
+- Treating "we drew a C4 diagram" as satisfying a stakeholder-concerns requirement without ever eliciting the concerns.
+- Adopting TOGAF/Zachman-level ceremony for a single product team's architecture documentation need.
+
+#### Sources
+ISO/IEC/IEEE 42010:2022; Philippe Kruchten, *Architectural Blueprints — The "4+1" View Model*; arc42.org; SEI *Views and Beyond*. See also [`13` §2](13-standards-crosswalk.md#2-architecture-description--life-cycle).
 
 ---
 
@@ -465,5 +495,6 @@ One diagram cannot explain everything. Use the C4 levels ([§9.2](#92-the-c4-mod
 - **What to optimize for:** [`06` — Quality Attributes & Trade-offs](06-quality-attributes-tradeoffs.md) (NFRs, CAP/PACELC, Well-Architected, ATAM).
 - **Operating it:** [`07` — Security, Reliability, Operations & Delivery](07-security-reliability-operations.md).
 - **Capturing decisions:** [`08` — Checklists & Templates](08-checklists-and-templates.md).
+- **Standards crosswalk** (42010, 25012, and more): [`13` — Standards Crosswalk](13-standards-crosswalk.md).
 
 > **The throughline:** Manage complexity, make change cheap, expect failure, and align with the business. Record the *why*; guard it with fitness functions; evolve.

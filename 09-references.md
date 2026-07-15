@@ -2,7 +2,7 @@
 
 This reference synthesizes established, widely recognized sources in software architecture and engineering. The guide summarizes and integrates these sources; it does not reproduce them wholesale. Use them as **inputs to decisions, not absolute rules** — every source assumes a context.
 
-*Last verified: 2026-07-10.*
+*Last verified: 2026-07-15.*
 
 ---
 
@@ -87,6 +87,36 @@ This reference synthesizes established, widely recognized sources in software ar
 
 ---
 
+## International Standards (ISO/IEC/IEEE) & Regulatory
+
+The sources above are predominantly practitioner/vendor sources. The following formal international standards and regulations are cross-referenced throughout this guide (see the full mapping in [`13` — Standards Crosswalk](13-standards-crosswalk.md)):
+
+**Quality & measurement (SQuaRE series):** ISO/IEC 25010:2023 (product quality model, 9 characteristics incl. Safety) — https://www.iso.org/standard/78176.html; ISO/IEC 25012:2008 (data quality model); ISO/IEC 25023 (quality measures); ISO/IEC 25040 (evaluation process); ISO/IEC 5055:2021 (CISQ automated source-code quality measures) — https://www.it-cisq.org/standards/code-quality-standards/.
+
+**Architecture description & life cycle:** ISO/IEC/IEEE 42010:2022 (architecture description: stakeholders, concerns, viewpoints, views); ISO/IEC/IEEE 12207:2017 (software life cycle processes); ISO/IEC/IEEE 15288:2023 (system life cycle processes); TOGAF (The Open Group); Zachman Framework.
+
+**Testing:** ISO/IEC/IEEE 29119 (software testing — concepts, processes, documentation, techniques; note: subject to a documented practitioner controversy, see [`13` §3](13-standards-crosswalk.md#3-software-testing)) — https://softwaretestingstandard.org/.
+
+**Security management & application security:** ISO/IEC 27001 / 27002:2022 (ISMS + control catalog); ISO/IEC 27034 (application security); NIST Cybersecurity Framework (CSF) 2.0; NIST SP 800-53; CIS Controls; OWASP SAMM; BSIMM.
+
+**Threat modeling:** STRIDE (Microsoft); LINDDUN (privacy threat modeling) — https://www.linddun.org/; PASTA; MITRE ATT&CK — https://attack.mitre.org/.
+
+**Supply chain:** SLSA (Supply-chain Levels for Software Artifacts) — https://slsa.dev/; SPDX — https://spdx.dev/; CycloneDX — https://cyclonedx.org/; in-toto — https://in-toto.io/; US Executive Order 14028; EU Cyber Resilience Act (CRA).
+
+**Privacy:** ISO/IEC 29100 (privacy framework); ISO/IEC 27701 (Privacy Information Management System); NIST Privacy Framework; GDPR (EU); CCPA/CPRA (California).
+
+**Accessibility:** WCAG 2.2 (see the Web Application Design entry below); EN 301 549 (EU harmonized ICT accessibility standard); European Accessibility Act (EAA, compliance deadlines from June 2025); ISO 9241-210 (human-centred design process); US Section 508 / ADA.
+
+**Service management & risk:** ISO/IEC 20000; ITIL 4; ISO 31000 (risk management); ISO/IEC 27005 (information-security risk management).
+
+**Named compliance frameworks:** PCI-DSS; HIPAA; SOC 2 (AICPA trust services criteria); FedRAMP/StateRAMP.
+
+**Internationalization:** Unicode; CLDR (Common Locale Data Repository); ISO 639/3166/4217/8601; W3C Internationalization.
+
+*Used for:* every cross-reference in the "Standards:" notes throughout files `01`–`13`; standard editions and regulatory phase-in dates change — verify against the issuing body before a compliance-relevant decision.
+
+---
+
 ## Web Application Design
 
 - **Google web.dev — Web Vitals:** https://web.dev/articles/vitals — Core Web Vitals and thresholds.
@@ -117,6 +147,17 @@ This reference synthesizes established, widely recognized sources in software ar
 *Used for:* platform design conventions, desktop UX, webview-based app security, trust boundaries, IPC, sandboxing, permissions, portals, code signing, update risk, and platform integration.
 
 > *Note:* the Apple HIG page serves a JavaScript-only shell to automated fetchers. It remains an authoritative reference; this guide reflects general platform-design knowledge rather than verbatim Apple text.
+
+---
+
+## Mobile Application Design
+
+- **OWASP Mobile Application Security (MAS)** — **MASVS** (Mobile Application Security Verification Standard: L1 baseline, L2 defense-in-depth, R resilience) and **MASTG** (Mobile Application Security Testing Guide): https://mas.owasp.org/
+- **Apple — Human Interface Guidelines, App Store Review Guidelines, Keychain Services:** https://developer.apple.com/design/human-interface-guidelines
+- **Google — Material Design, Android Developers (Jetpack Compose, WorkManager, Keystore, App Signing):** https://m3.material.io/ , https://developer.android.com/
+- **Flutter, React Native, Kotlin Multiplatform** — respective official docs (framework specifics evolve quickly; verify current benchmarks/positioning before a production decision).
+
+*Used for:* what makes mobile different, UI architecture patterns, native-vs-cross-platform and framework comparison, per-platform (iOS/Android) specifics, offline-first/sync, mobile security (MASVS/MASTG), performance, accessibility, and store packaging/release in [`12`](12-mobile-application-design.md).
 
 ---
 
@@ -193,3 +234,5 @@ The strongest sources are **vendor/operator frameworks and standards bodies** (W
 Use sources as **inputs to decisions, not absolute rules**. Every source assumes a context: a small internal tool, a regulated financial platform, a global consumer web app, and a local-first desktop app each need a different level of rigor.
 
 Specific quantitative figures in this reference (Core Web Vitals thresholds, availability "nines," framework binary sizes, OWASP rankings) reflect commonly published industry values at the verification date and may evolve — **always confirm against the current primary source for production decisions.**
+
+For a structured mapping from this guide's concepts to the formal international standards and regulations that also cover them (useful when an auditor, RFP, or regulator names a standard rather than a practitioner source), see [`13` — Standards Crosswalk](13-standards-crosswalk.md).

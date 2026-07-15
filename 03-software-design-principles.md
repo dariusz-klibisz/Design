@@ -398,6 +398,17 @@ Introduce small faults ("mutants") to measure test-suite quality: surviving muta
 ### 9.8 Testability Is a Design Property
 Code is testable when dependencies, side effects, and boundaries are clear. Prefer fast unit tests for pure/domain logic, integration tests for DB/messaging/external boundaries, contract tests for service APIs, and end-to-end tests sparingly for critical journeys. Avoid testing implementation details and slow suites that block frequent integration. Don't forget tests around **data migrations**.
 
+### 9.9 The Formal Testing Standard: ISO/IEC/IEEE 29119
+
+#### Summary
+**ISO/IEC/IEEE 29119** is a comprehensive international standard for software testing — vocabulary and definitions (Part 1), test processes (Part 2), test documentation templates (Part 3), test-design techniques (Part 4), and keyword-driven testing (Part 5) — usable within any SDLC.
+
+#### A contested standard — present both sides
+Unlike most standards in this guide, 29119 attracted an organized practitioner objection (notably from the context-driven testing community, via a formal "Stop 29119" petition) on the grounds that it over-formalizes testing with heavyweight documentation that fits poorly with exploratory and Agile practice, and that its drafting process underrepresented working testers. Treat 29119 as a **reference vocabulary and a documentation-heavy option for regulated contexts** (e.g., where an auditor or contract explicitly names it) rather than a required practice for most teams. The test pyramid/trophy ([§9.1](#91-the-test-pyramid-and-trophy)) and FIRST principles ([§9.5](#95-first-principles)) remain this guide's primary testing guidance; 29119 is a vocabulary bridge, not a replacement.
+
+#### Sources
+ISO/IEC/IEEE 29119; see the crosswalk and controversy note in [`13` §3](13-standards-crosswalk.md#3-software-testing).
+
 ---
 
 ## 10. Refactoring, Code Smells & Technical Debt
@@ -432,6 +443,9 @@ The implied future cost of an expedient solution now (Ward Cunningham's metaphor
 
 **Manage it:** make debt visible (backlog/register), pay down high-interest debt first, and budget for it continuously. Severe, pervasive debt may mean "bankruptcy" (rewrite) — but rewrites are risky; prefer incremental strangling ([02 §4.8](02-architecture-patterns.md#48-strangler-fig-legacy-modernization)).
 
+#### Measuring debt objectively: ISO/IEC 5055 & CISQ
+Cunningham's metaphor is qualitative by design, but it can be measured directly from source-code structure. **ISO/IEC 5055:2021** (the CISQ Automated Source Code Quality Measures, ISO-standardized) defines automated measures for **Reliability, Performance Efficiency, Security, and Maintainability**, each built from a set of source-level weaknesses mapped to CWEs — giving before-the-fact evidence of structural weaknesses rather than waiting for them to surface in production. The companion **CISQ Automated Technical Debt** measure estimates the *cost* to remediate those weaknesses, putting a number on the "interest" side of the debt metaphor. Useful as a static-analysis-tool-backed complement to a manual debt register, not a replacement for the judgment calls in prioritizing what to pay down first. See [`06` §2](06-quality-attributes-tradeoffs.md#2-the-quality-attributes-catalog) for how 5055's four measures map onto the broader ISO/IEC 25010 quality model, and [`13` §1](13-standards-crosswalk.md#1-quality-models--measurement-square-series) for the full crosswalk.
+
 ---
 
 ## 11. Development Process & Collaboration
@@ -463,12 +477,44 @@ Gate features behind runtime flags to decouple deploy from release. Categories: 
 ### 11.7 Dependency Management
 Dependencies carry security, licensing, maintenance, and operational risk. Prefer maintained dependencies with clear licenses; pin versions/use lockfiles; automate vulnerability scanning; remove unused dependencies; track transitive risk; maintain an SBOM for serious products. Avoid tiny dependencies for trivial code when the supply-chain risk outweighs the benefit. (Supply chain detail in [07 §4](07-security-reliability-operations.md#4-supply-chain-security).)
 
+### 11.8 The Formal Process Standards Behind This Section
+The Agile/CI-CD/DevOps practices above are concrete implementations of a more abstract process backbone formalized in two international standards: **ISO/IEC/IEEE 12207:2017** (software life cycle processes — agreement, organizational, technical, and supporting processes across the full software life cycle) and **ISO/IEC/IEEE 15288:2023** (the systems-engineering counterpart, relevant when software is one component of a larger system — embedded, IoT, safety-critical). Most teams never need to read these directly; they matter when a contract, regulator, or enterprise process-maturity assessment expects a named process standard rather than "we do Scrum and trunk-based development." See [`13` §2](13-standards-crosswalk.md#2-architecture-description--life-cycle).
+
+---
+
+## 12. Internationalization & Localization (i18n/l10n)
+
+Software that reaches more than one language or region has requirements that are easy to retrofit badly and expensive to retrofit late — much like the security/accessibility/observability exception to YAGNI ([§2.3](#23-yagni-you-arent-gonna-need-it)), i18n-readiness is cheap to build in from the start and costly to bolt on afterward.
+
+### 12.1 Core Concepts
+- **i18n (internationalization)** — designing code so it *can* be adapted to different languages/regions without code changes: externalized strings, locale-aware formatting, no hard-coded assumptions about text direction, name order, or character set.
+- **l10n (localization)** — the act of adapting content/UI for a specific locale: translation, date/number/currency formats, images, legal text.
+- **Locale** — a language + region (+ optional script/variant) identifier, e.g. `en-US`, `pt-BR`, `zh-Hant-TW` (BCP 47 tags).
+
+### 12.2 Code-Level Practices
+- **Never concatenate translated string fragments** — word order and grammar vary across languages; use a message-formatting system (e.g., **ICU MessageFormat**) that handles interpolation, gender, and **pluralization rules** (which are far more varied across languages than "singular vs plural" — some languages have zero/one/two/few/many/other categories).
+- **Externalize all user-facing strings** into message catalogs/resource bundles; never hard-code strings in business logic (also aids [§2.13 Functional Core, Imperative Shell](#213-functional-core-imperative-shell) by keeping presentation concerns at the edge).
+- **Use locale-aware formatting libraries** for dates, times, numbers, currencies, and lists — never hand-roll date/number formatting; the underlying data comes from the **Unicode CLDR (Common Locale Data Repository)**.
+- **Store and transmit in UTC / ISO 8601**; format to the user's locale/timezone only at the presentation edge.
+- **Support right-to-left (RTL) layout** (Arabic, Hebrew) as a first-class layout mode, not a CSS afterthought — mirroring, not just text direction, is often required.
+- **Don't assume name structure, address format, or a single "full name" field** — these vary enough across locales that premature schema assumptions cause real rework.
+- **Currency and units:** store amounts with an explicit currency/unit, never bare numbers; use **ISO 4217** currency codes.
+
+### 12.3 Process & Testing
+- **Translation workflow:** externalized strings flow to translators (often via a translation-management platform) and back; avoid tight coupling between a release and translation completeness — use fallback locales.
+- **Pseudolocalization** — a testing technique that expands/accents/mirrors strings programmatically (without real translation) to catch hard-coded strings, truncation, and RTL layout bugs early, cheaply, and without waiting on translators.
+- **Don't forget:** sorting/collation is locale-specific (not naive byte-order); search and validation (postal codes, phone numbers) must not assume one country's format.
+
+### 12.4 Standards
+**Unicode** (character encoding) and **CLDR** (locale data — formats, pluralization, collation) are the foundational standards nearly every i18n library builds on. **ISO 639** (language codes), **ISO 3166** (country codes), **ISO 4217** (currency codes), and **ISO 8601** (date/time format) supply the identifiers locale tags and data exchange rely on. See the full crosswalk in [`13` §11](13-standards-crosswalk.md#11-internationalization).
+
 ---
 
 ## Key Cross-References
 - **Architecture** that frames these choices: [`01`](01-architecture-principles.md), [`02`](02-architecture-patterns.md).
-- **Web** and **desktop** applications: [`04`](04-web-application-design.md), [`05`](05-desktop-application-design.md).
+- **Web**, **desktop**, and **mobile** applications: [`04`](04-web-application-design.md), [`05`](05-desktop-application-design.md), [`12`](12-mobile-application-design.md).
 - **Quality attributes & trade-offs:** [`06`](06-quality-attributes-tradeoffs.md).
 - **Delivery & operations:** [`07`](07-security-reliability-operations.md).
+- **Standards crosswalk (29119, 5055, 12207/15288, i18n):** [`13`](13-standards-crosswalk.md).
 
 > Principles are forces in tension. The skill is not memorizing them — it's knowing which to apply, which to bend, and why, in *this* context.

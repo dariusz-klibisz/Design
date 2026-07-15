@@ -14,7 +14,7 @@ Humans are welcome to read it too. For orientation, start with
 
 ## Structure & conventions
 
-- Files are numbered `00`–`11` (see the file map in [`README.md`](README.md)). The
+- Files are numbered `00`–`13` (see the file map in [`README.md`](README.md)). The
   numbering is a stable ordering; **do not renumber or rename files** without updating
   every cross-reference.
 - [`00-index.md`](00-index.md) is the canonical index: file table, *Decision

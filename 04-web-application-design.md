@@ -115,7 +115,7 @@ Reasoning: *ship less, fetch less and closer, do less on the main thread.*
 #### Summary
 Accessibility is a design and engineering requirement, not a final audit task. It reaches a large population (commonly cited as ~15%+ of users have a disability) and reduces legal/compliance risk (ADA, Section 508, EAA).
 
-**WCAG** organizes guidance under **POUR** — Perceivable, Operable, Understandable, Robust. Target **WCAG 2.1/2.2 Level AA**.
+**WCAG** organizes guidance under **POUR** — Perceivable, Operable, Understandable, Robust. Target current stable **WCAG 2.2 Level AA** (verify against w3.org/WAI for the latest version before a production decision — see [09](09-references.md)).
 
 #### Guidance
 - Use **semantic HTML before ARIA**; add ARIA only where needed.
@@ -124,6 +124,9 @@ Accessibility is a design and engineering requirement, not a final audit task. I
 - Label form controls and errors; alt text for meaningful images.
 - Manage focus in modals/dialogs; respect **reduced-motion** preferences.
 - Test critical flows with screen readers; include a11y acceptance criteria in stories.
+
+#### Standards & regulatory drivers
+WCAG is the technical foundation, but the standard an EU compliance review actually names is often **EN 301 549** — the EU's harmonized ICT accessibility standard, which incorporates WCAG by reference and extends it to non-web ICT (native apps, documents, self-service terminals). The **European Accessibility Act (EAA)** is the EU directive requiring accessibility for a range of consumer products/services (e-commerce, banking, e-books…), with compliance deadlines from **June 2025** — relevant to any EU-facing product, not just public-sector ones. In the US, **Section 508** governs federal procurement and the **ADA** underlies broader accessibility case law. Underlying all of these, **ISO 9241-210** defines the *human-centred design process* (understand context → specify requirements → produce design solutions → evaluate, iteratively) that good accessibility practice is embedded in, rather than being a separate conformance checklist bolted onto a finished design. Full crosswalk: [`13` §8](13-standards-crosswalk.md#8-accessibility).
 
 #### Common mistakes
 Div-based custom controls without keyboard behavior; removing focus outlines; placeholder text as the only label; modals that trap/lose focus; infinite scroll without accessible navigation. (The "curb-cut effect": accessibility improvements often help everyone.)
@@ -166,6 +169,8 @@ Prefer **additive, backward-compatible** evolution; publish deprecation timeline
 
 ### 6.4 API-First / Contract-First
 Design the contract (OpenAPI / AsyncAPI / Protobuf) before implementation as the single source of truth — enabling parallel development against mocks, generated docs/clients/servers, and earlier security review. Best for multiple teams, public APIs, and microservices. Note that shared DTO/contract types are compile-time promises only: each boundary still needs runtime validation of incoming payloads to catch contract drift between independently deployed sides ([03 §2.1](03-software-design-principles.md#21-dry-damp-and-the-cost-of-coupling)).
+
+**Named contract standards worth knowing:** **OpenAPI** (REST contract format), **AsyncAPI** (its event-driven/messaging counterpart), **JSON:API** (a specific opinionated convention for resource shape, relationships, and pagination), and **RFC 9457 (Problem Details for HTTP APIs)** — a standardized JSON shape (`type`/`title`/`status`/`detail`/`instance`) for machine-readable API error responses, worth adopting instead of inventing a bespoke error envelope (ties to the error-category guidance in [03 §8.2](03-software-design-principles.md#82-error-handling-as-design)). OAuth's current IETF track is **OAuth 2.1**, which consolidates security best-practice (mandatory PKCE, dropped implicit/password grants) that this guide's [§8.2](#82-oauth-20--openid-connect-oidc) already recommends as practice.
 
 ### 6.5 Webhooks, Streaming, WebSockets & SSE
 - **Webhooks:** async notifications to external systems — sign payloads, include event IDs, support retries and idempotency, document ordering.
@@ -222,6 +227,9 @@ The OWASP Top 10 is the standard awareness baseline for the most critical web ap
 | **SSRF** | Allowlist egress; validate/normalize URLs; block internal metadata endpoints |
 
 **Essential security headers:** `Strict-Transport-Security` (HSTS), `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`.
+
+#### Standards
+OWASP Top 10 is an *awareness* baseline, not a verification standard. For a system that needs a formal, verifiable set of security requirements (a contract, an audit, a certification target), pair it with **OWASP ASVS** (already cited, [09](09-references.md)) and **ISO/IEC 27034** (application security integrated into the SDLC — the ISO counterpart to ASVS/SSDF, [07 §1](07-security-reliability-operations.md#1-secure-software-development-lifecycle-ssdf)). Full crosswalk: [`13` §4](13-standards-crosswalk.md#4-security--management-application-and-sdlc-standards).
 
 ---
 
@@ -347,6 +355,9 @@ Collect, process, retain, and expose the **minimum** personal data needed for us
 #### Guidance
 Maintain a data inventory; classify personal/sensitive data; limit analytics collection; avoid logging secrets, tokens, or sensitive content; define retention and deletion; make consent meaningful where required.
 
+#### Standards & regulation
+**ISO/IEC 29100** provides a vendor/jurisdiction-neutral privacy framework and common terminology; **ISO/IEC 27701** extends an organization's ISO 27001 information-security management system into a certifiable **Privacy Information Management System (PIMS)** ([07 §16](07-security-reliability-operations.md#16-named-compliance-frameworks)). Legally, **GDPR** (EU) is the strictest widely-applicable regime — lawful basis, purpose limitation, data minimization, subject-access/erasure rights, breach notification, cross-border transfer rules — and **CCPA/CPRA** (California) imposes broadly similar consumer rights in the US. When threat-modeling privacy specifically (not just security), **LINDDUN** ([07 §2](07-security-reliability-operations.md#2-threat-modeling)) is the systematic counterpart to STRIDE for privacy threats (linkability, identifiability, disclosure, unawareness, non-compliance…). Full crosswalk: [`13` §7](13-standards-crosswalk.md#7-privacy).
+
 #### Common mistakes
 Third-party trackers added without review; personal data in URLs; copying production data to dev/test.
 
@@ -403,3 +414,4 @@ Automate rollback on SLO breach. (Delivery practices in [07 §9](07-security-rel
 - **Architecture:** [`01`](01-architecture-principles.md), [`02`](02-architecture-patterns.md). **Design/coding:** [`03`](03-software-design-principles.md).
 - **Quality attributes & trade-offs:** [`06`](06-quality-attributes-tradeoffs.md).
 - **Security, reliability, ops & delivery:** [`07`](07-security-reliability-operations.md). **Checklists:** [`08`](08-checklists-and-templates.md).
+- **Mobile counterpart:** [`12`](12-mobile-application-design.md). **Standards crosswalk (WCAG/EN 301 549/GDPR/27701):** [`13`](13-standards-crosswalk.md).

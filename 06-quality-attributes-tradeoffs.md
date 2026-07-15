@@ -42,6 +42,27 @@ Each attribute: *definition → how to measure → tactics → what it trades ag
 | **Cost** | Value justifies spend? | Unit cost, cloud spend, support cost |
 | **Sustainability** | Minimizes resource waste? | Energy use, idle resources, data volume |
 | **Interoperability** | Works with other systems? | Open standards, versioned APIs, ACLs |
+| **Safety** | Prevents harm to people, data, or property under fault conditions? | Hazard coverage, fail-safe behavior, incident severity |
+
+#### Standards mapping: ISO/IEC 25010:2023
+
+This catalog is a practitioner-oriented restatement of the international **product quality model**, **ISO/IEC 25010:2023** (part of the SQuaRE series), which groups quality into **9 characteristics** (each with sub-characteristics). The table below maps this guide's "-ilities" onto the standard's characteristics — use it to translate between this guide's vocabulary and an auditor's or RFP's:
+
+| ISO/IEC 25010:2023 characteristic | Sub-characteristics (examples) | Corresponding attribute(s) above |
+|---|---|---|
+| **Functional Suitability** | Completeness, correctness, appropriateness | (functional requirements — out of scope for this NFR catalog) |
+| **Performance Efficiency** | Time behavior, resource utilization, capacity | Performance, Scalability |
+| **Compatibility** | Co-existence, interoperability | Interoperability, Portability |
+| **Interaction Capability** *(renamed from Usability)* | Appropriateness recognizability, learnability, accessibility, user error protection | Usability, Accessibility |
+| **Reliability** | Maturity, availability, fault tolerance, recoverability | Reliability, Availability |
+| **Security** | Confidentiality, integrity, non-repudiation, accountability, authenticity | Security, Privacy (partial) |
+| **Maintainability** | Modularity, reusability, analyzability, modifiability, testability | Maintainability, Testability |
+| **Flexibility** *(renamed from Portability)* | Adaptability, installability, replaceability, scalability | Portability |
+| **Safety** *(new in 2023)* | Operational constraint, risk identification, fail-safe, hazard warning, safe integration | Safety (added above) |
+
+**Safety** is the newest characteristic (added in the 2023 revision) and was previously absent from this guide's catalog. It covers preventing or limiting harm to people, property, or the environment from a system's operation or malfunction — not the same as *Security* (which resists intentional misuse). Most business/consumer software has light Safety requirements (e.g., "don't corrupt the user's data," "fail closed on a permission check"); systems with **physical, financial, or life-safety consequences** (medical devices, automotive, industrial control, aviation, financial trading) should consult **domain-specific functional-safety standards** — **IEC 61508** (generic), **ISO 26262** (automotive), **DO-178C** (avionics software), **IEC 62304** (medical device software) — which go well beyond this technology-agnostic guide's scope.
+
+Related standards worth knowing: **ISO/IEC 25012** defines a parallel **data quality model** (15 characteristics — accuracy, completeness, consistency, currentness, etc.), relevant wherever this guide discusses data ownership ([01 §8](01-architecture-principles.md#8-treat-data-ownership-as-an-architectural-decision)); **ISO/IEC 25023** defines *measures* for each 25010 characteristic (how to turn "maintainability" into a number); **ISO/IEC 25040** defines the quality *evaluation process*. See the full crosswalk in [`13`](13-standards-crosswalk.md#1-quality-models--measurement-square-series).
 
 ### Notable tactics & details
 
@@ -66,6 +87,7 @@ Each attribute: *definition → how to measure → tactics → what it trades ag
 - **2.10 Usability** — task success, time-on-task, the System Usability Scale (SUS), accessibility, POLA, progressive disclosure.
 - **2.11 Cost** — TCO, cost-per-transaction; right-sizing, autoscaling, serverless for spiky loads, buy-vs-build ([07 §14](07-security-reliability-operations.md#14-cost-optimization)).
 - **2.12 Interoperability** — open standards, versioned APIs, anti-corruption layers.
+- **2.13 Safety** — fail-safe defaults (deny/closed on ambiguous state), hazard identification during design review, explicit operational constraints, clear hazard warnings to users/operators, safe integration with adjacent systems. Trades against availability (a fail-safe often means fail-*stopped*) and usability (safety interlocks add friction). See the ISO/IEC 25010 mapping above; domain-specific functional-safety standards apply where harm consequences are physical or life-safety.
 
 #### Implementation guidance
 Convert vague qualities into **measurable scenarios**: *"At p95, checkout API latency must be under 300 ms for 1,000 concurrent users."* Define minimum-acceptable and stretch targets; record rationale in ADRs; automate checks where feasible.
@@ -158,6 +180,8 @@ Use the pillars as a structured review lens; the [Architecture Review Checklist]
 ### 6.1 ATAM (Architecture Tradeoff Analysis Method)
 The SEI method for evaluating an architecture against quality goals via **quality-attribute scenarios**, identifying **trade-off points**, **sensitivity points**, **risks**, and **non-risks**. Example scenario: *"Under 10× load, p99 stays under 500 ms."* Thorough but heavyweight — best for high-stakes systems.
 
+**Standards counterpart:** **ISO/IEC 25040** defines a formal SQuaRE *quality evaluation process* (establish requirements → specify evaluation → design evaluation → execute → conclude) that plays a similar role to ATAM in a standards-driven or audited context; **ISO/IEC/IEEE 42010**'s stakeholder/concern/viewpoint model ([01 §9.2](01-architecture-principles.md#92-the-c4-model)) provides the vocabulary for documenting what an ATAM or 25040 evaluation examined. Treat these as complementary formal frameworks, not replacements for the lighter-weight methods below.
+
 ### 6.2 Lightweight Alternatives
 - Quality-attribute scenarios + **fitness functions** ([01 §9.3](01-architecture-principles.md#93-architectural-fitness-functions)).
 - **Risk-storming** / threat modeling ([07 §2](07-security-reliability-operations.md#2-threat-modeling)).
@@ -238,5 +262,6 @@ flowchart TD
 
 ## Key Cross-References
 - **Principles & patterns:** [`01`](01-architecture-principles.md), [`02`](02-architecture-patterns.md). **Code:** [`03`](03-software-design-principles.md).
-- **Surfaces:** [`04`](04-web-application-design.md), [`05`](05-desktop-application-design.md).
+- **Surfaces:** [`04`](04-web-application-design.md), [`05`](05-desktop-application-design.md), [`12`](12-mobile-application-design.md).
 - **Operating it:** [`07`](07-security-reliability-operations.md). **Templates:** [`08`](08-checklists-and-templates.md).
+- **Standards crosswalk (ISO/IEC 25010/25012/25040/5055):** [`13`](13-standards-crosswalk.md).

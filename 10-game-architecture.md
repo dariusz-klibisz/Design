@@ -1746,6 +1746,8 @@ quality attributes must be achieved *within*, the same way security
 correctness is non-negotiable in [`06`](06-quality-attributes-tradeoffs.md)'s
 general framing. Treat them like a safety constraint, not a tunable NFR.
 
+> **Standards note:** these game-specific attributes map onto the general **ISO/IEC 25010** quality model ([06 §2](06-quality-attributes-tradeoffs.md#2-the-quality-attributes-catalog)) as domain-specific instances rather than new characteristics: frame-time budget and load time fall under **Performance Efficiency**; save durability and replayability fall under **Reliability**; fairness/PvP integrity falls under **Security**; and determinism, taken to its logical extreme (a physics/combat sim whose divergence could mean a corrupted competitive result or an exploitable desync), is this domain's clearest instance of 25010's **Safety** characteristic ([06 §2](06-quality-attributes-tradeoffs.md#2-the-quality-attributes-catalog)) — a fail-safe/deterministic-by-construction requirement, not a tunable preference. See [`13`](13-standards-crosswalk.md) for the full crosswalk.
+
 ---
 
 ## 19. Anti-patterns

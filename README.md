@@ -2,9 +2,10 @@
 
 A unified, **technology-agnostic** reference covering system & software architecture
 principles, architecture patterns & trade-offs, general software design principles,
-web and desktop application design, cross-cutting quality attributes, and
+web, desktop, and mobile application design, cross-cutting quality attributes, and
 security/reliability/operations/delivery — plus a library of decision guides,
-checklists, and templates.
+checklists, and templates. Every major concept is also cross-referenced to the
+international standards (ISO/IEC/IEEE, NIST, OWASP) and regulations that formalize it.
 
 This repository is **documentation, not code.** Each principle, pattern, and practice
 is described so you can judge whether it fits a specific situation — not as a rule to
@@ -33,8 +34,10 @@ failure, and align technical trade-offs with real business needs.*
 | [`09-references.md`](09-references.md) | Authoritative sources by category, with how each informed the guide |
 | [`10-game-architecture.md`](10-game-architecture.md) | Sim/presentation separation, fixed-tick pipeline, command pattern for replay, determinism, ECS vs node composition, state machines & AI architectures, data-driven content, procedural generation, saves, async-PvP & real-time netcode, performance patterns, frame budgets, asset pipeline, game testing |
 | [`11-godot-engine-notes.md`](11-godot-engine-notes.md) | **Engine-specific, time-sensitive** — maps `10`'s patterns onto the Godot engine (verified against Godot 4.7) |
+| [`12-mobile-application-design.md`](12-mobile-application-design.md) | UI patterns (MVVM/MVI/MVU), native vs cross-platform (Flutter/React Native/Kotlin Multiplatform), iOS/Android specifics, offline-first & sync, mobile security (OWASP MASVS/MASTG), performance, accessibility, store packaging & release |
+| [`13-standards-crosswalk.md`](13-standards-crosswalk.md) | Maps this guide's concepts to formal ISO/IEC/IEEE standards and regulations (25010, 42010, 5055, 27001, WCAG, GDPR, and more) |
 
-The `00`–`11` numbering is a stable ordering; treat the filenames as durable anchors
+The `00`–`13` numbering is a stable ordering; treat the filenames as durable anchors
 for cross-references.
 
 ---
@@ -51,10 +54,13 @@ Start with the **decision you need to make**, not a favorite pattern or technolo
   [`04`](04-web-application-design.md) / [`05`](05-desktop-application-design.md).
 - **Building a web app** → [`04`](04-web-application-design.md).
 - **Building a desktop app** → [`05`](05-desktop-application-design.md).
+- **Building a mobile app** → [`12`](12-mobile-application-design.md).
 - **Building a game / real-time simulation** → [`10`](10-game-architecture.md); in the
   Godot engine specifically → [`11`](11-godot-engine-notes.md).
 - **Running software in production** → [`07`](07-security-reliability-operations.md).
 - **Turning a decision into a record** → [`08`](08-checklists-and-templates.md).
+- **Mapping to a named standard/regulation (audit, RFP, compliance)** →
+  [`13`](13-standards-crosswalk.md).
 
 Every entry is self-contained, so you can also jump directly to any principle.
 

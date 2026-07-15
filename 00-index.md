@@ -27,8 +27,9 @@ A practical process:
 - **Designing a new system?** Start with [`06` — Quality Attributes & Trade-offs](06-quality-attributes-tradeoffs.md) (decide what matters), then [`01` — Architecture Principles](01-architecture-principles.md) and [`02` — Architecture Patterns](02-architecture-patterns.md), then [`03`](03-software-design-principles.md), and the surface-specific files [`04`](04-web-application-design.md)/[`05`](05-desktop-application-design.md). Capture decisions with [`08`](08-checklists-and-templates.md).
 - **Building a web app?** See [`04`](04-web-application-design.md), with [`02`](02-architecture-patterns.md) for caching/queues/CQRS/resilience and [`07`](07-security-reliability-operations.md) for SLOs, observability, and delivery.
 - **Building a desktop app?** See [`05`](05-desktop-application-design.md), with [`03`](03-software-design-principles.md) for modularity and [`07`](07-security-reliability-operations.md) for secure updates and telemetry.
+- **Building a mobile app?** See [`12`](12-mobile-application-design.md), with [`05`](05-desktop-application-design.md) for shared MV*/offline-sync foundations and [`07`](07-security-reliability-operations.md) for supply chain and delivery.
 - **Legacy modernization?** [`01`](01-architecture-principles.md) (evolutionary architecture, ADRs) + [`02`](02-architecture-patterns.md) (strangler fig, anti-corruption layer, modular monolith) + [`08`](08-checklists-and-templates.md) (modernization log).
-- **Security/compliance review?** [`07`](07-security-reliability-operations.md) (SSDF, threat modeling, supply chain) + [`04`](04-web-application-design.md) (web security) + [`05`](05-desktop-application-design.md) (sandboxing/IPC/updates) + [`08`](08-checklists-and-templates.md) checklists.
+- **Security/compliance review?** [`07`](07-security-reliability-operations.md) (SSDF, threat modeling, supply chain, named compliance frameworks) + [`04`](04-web-application-design.md) (web security) + [`05`](05-desktop-application-design.md)/[`12`](12-mobile-application-design.md) (desktop/mobile security) + [`08`](08-checklists-and-templates.md) checklists + [`13`](13-standards-crosswalk.md) (mapping to named standards/regulations).
 - **Resolving a trade-off?** Use the [Decision Quick-Reference Matrix](#decision-quick-reference-matrix) below, then [`06`](06-quality-attributes-tradeoffs.md).
 - **Building a game / real-time simulation?** See [`10`](10-game-architecture.md), with [`01`](01-architecture-principles.md)/[`02`](02-architecture-patterns.md) for general structural patterns and [`03`](03-software-design-principles.md) for composition-over-inheritance and code-level design. Working in the Godot engine specifically? [`11`](11-godot-engine-notes.md) maps [`10`](10-game-architecture.md)'s patterns onto it.
 
@@ -52,6 +53,8 @@ Every entry is self-contained, so you can also jump directly to any principle.
 | **[09 — References](09-references.md)** | Authoritative sources by category, with how each informed the guide; source-evaluation guidance | Verifying claims against primary sources |
 | **[10 — Game Architecture](10-game-architecture.md)** | Sim/presentation separation, fixed-tick pipeline, command pattern for replay, determinism requirements, ECS vs node composition, state machines & AI decision architectures, data-driven content, procedural generation, save persistence/versioning, async-PvP & real-time netcode models, performance patterns, frame budgets, asset pipeline, game testing, game-specific quality attributes | Architecting a real-time or turn-based game/simulation |
 | **[11 — Godot Engine Notes](11-godot-engine-notes.md)** | **Engine-specific, time-sensitive** (verified against Godot 4.7): scenes/nodes/signals, `_physics_process` & physics interpolation, custom Resources & mod security, entity-count scaling ladder (nodes → Servers → ECS addons), determinism caveats, high-level multiplayer, GDScript/C#/GDExtension selection | Applying [`10`](10-game-architecture.md)'s patterns in Godot specifically |
+| **[12 — Mobile Application Design](12-mobile-application-design.md)** | What makes mobile different, UI patterns (MVVM/MVI/MVU), native vs cross-platform (Flutter/React Native/Kotlin Multiplatform/.NET MAUI), iOS/Android specifics, offline-first & sync, state/navigation/push, mobile security (OWASP MASVS/MASTG), performance, accessibility, packaging/signing/store release, mobile quality attributes | Building mobile applications specifically |
+| **[13 — Standards Crosswalk](13-standards-crosswalk.md)** | Maps every major concept in this guide to the formal international standard(s) or regulation(s) that define it: ISO/IEC 25010/25012/5055 (quality), ISO/IEC/IEEE 42010/12207/15288 (architecture/life cycle), 29119 (testing), 27001/27034/CSF/SLSA/SBOM (security/supply chain), WCAG/EN 301 549/EAA (accessibility), GDPR/27701 (privacy), PCI-DSS/HIPAA/SOC 2/FedRAMP (compliance) | Mapping this guide's vocabulary onto a standard an auditor, RFP, or regulator names |
 
 ---
 
@@ -88,6 +91,7 @@ Jump to the right section based on the question you're trying to answer.
 | How much / what kind of testing? | [03 §9](03-software-design-principles.md#9-testing-principles) |
 | Manage technical debt / code smells? | [03 §10](03-software-design-principles.md#10-refactoring-code-smells--technical-debt) |
 | Branching / CI-CD / review strategy? | [03 §11](03-software-design-principles.md#11-development-process--collaboration), [07 §9–11](07-security-reliability-operations.md#9-continuous-delivery) |
+| Internationalize / localize (i18n/l10n)? | [03 §12](03-software-design-principles.md#12-internationalization--localization-i18nl10n) |
 
 ### Building Web Applications
 
@@ -119,6 +123,20 @@ Jump to the right section based on the question you're trying to answer.
 | Secure a desktop app (incl. Electron/Tauri)? | [05 §9](05-desktop-application-design.md#9-desktop-security) |
 | Startup/memory/battery/resource use? | [05 §10](05-desktop-application-design.md#10-performance--resource-use) |
 | Packaging, code signing, auto-update? | [05 §11](05-desktop-application-design.md#11-packaging-distribution--updates) |
+
+### Building Mobile Applications
+
+| Question | Go to |
+|---|---|
+| Native, cross-platform, or logic-shared (KMP)? | [12 §3](12-mobile-application-design.md#3-native-vs-cross-platform-the-core-decision) |
+| Flutter vs React Native vs Kotlin Multiplatform vs MAUI? | [12 §4](12-mobile-application-design.md#4-cross-platform-frameworks-compared) |
+| Which UI pattern (MVVM/MVI/MVU)? | [12 §2](12-mobile-application-design.md#2-mobile-ui-architecture-patterns) |
+| iOS vs Android specifics? | [12 §5](12-mobile-application-design.md#5-platform-specifics-ios-vs-android) |
+| Offline-first / local data / sync? | [12 §6](12-mobile-application-design.md#6-offline-first--local-data--sync) |
+| Push notifications / deep links / background work? | [12 §7](12-mobile-application-design.md#7-state-navigation-deep-links--push) |
+| Secure a mobile app (OWASP MASVS/MASTG)? | [12 §8](12-mobile-application-design.md#8-mobile-security) |
+| Battery/cold-start/jank performance? | [12 §9](12-mobile-application-design.md#9-performance--resource-use) |
+| App-store submission, signing, staged rollout? | [12 §11](12-mobile-application-design.md#11-packaging-signing-store-submission--release) |
 
 ### Building Games
 
@@ -153,6 +171,8 @@ Jump to the right section based on the question you're trying to answer.
 | Define SLOs / error budgets? | [07 §5](07-security-reliability-operations.md#5-slos-slis-and-error-budgets) |
 | Threat model / secure SDLC? | [07 §1–2](07-security-reliability-operations.md#1-secure-software-development-lifecycle-ssdf) |
 | Control cost / sustainability? | [07 §14–15](07-security-reliability-operations.md#14-cost-optimization) |
+| Which named standard/regulation applies (PCI/HIPAA/SOC2/GDPR/WCAG/ISO 27001…)? | [08 §18 triage](08-checklists-and-templates.md#18-standards-conformance-triage), [`13`](13-standards-crosswalk.md) |
+| Map this guide's quality catalog to ISO/IEC 25010? | [06 §2](06-quality-attributes-tradeoffs.md#2-the-quality-attributes-catalog) |
 
 ---
 
@@ -165,9 +185,11 @@ flowchart TB
   PRIN --> PAT[Architecture Patterns<br/>file 02]
   QA --> WEB[Web App Design<br/>file 04]
   QA --> DESK[Desktop App Design<br/>file 05]
+  QA --> MOB[Mobile App Design<br/>file 12]
   PAT --> CODE[Software Design Principles<br/>file 03]
   WEB --> CODE
   DESK --> CODE
+  MOB --> CODE
   CODE --> OPS[Security / Reliability / Ops / Delivery<br/>file 07]
   PAT --> OPS
   OPS --> TRADE{Trade-offs<br/>file 06 §3-4}
@@ -175,9 +197,11 @@ flowchart TB
   TRADE -.->|record rationale ADR| PRIN
   TRADE -.->|guard with fitness functions| PRIN
   TRADE -.->|capture with checklists/templates| TMPL[Checklists & Templates<br/>file 08]
+  QA -.->|formalized by| STD[Standards Crosswalk<br/>file 13]
+  OPS -.->|formalized by| STD
 ```
 
-**Reading:** Business needs determine which *quality attributes* matter (06). Those drive *architecture principles* (01) and *patterns* (02), and the surface-specific practices for *web* (04) and *desktop* (05), realized through *design principles* in code (03), and *operated* safely (07). Every step involves *trade-offs* (06), which should be recorded (ADRs), guarded (fitness functions), and captured with reusable *checklists and templates* (08).
+**Reading:** Business needs determine which *quality attributes* matter (06). Those drive *architecture principles* (01) and *patterns* (02), and the surface-specific practices for *web* (04), *desktop* (05), and *mobile* (12), realized through *design principles* in code (03), and *operated* safely (07). Every step involves *trade-offs* (06), which should be recorded (ADRs), guarded (fitness functions), and captured with reusable *checklists and templates* (08). Where a decision engages a named international standard or regulation, the *standards crosswalk* (13) maps this guide's vocabulary onto it.
 
 ---
 
@@ -195,6 +219,7 @@ flowchart TB
 | Accessibility by default | Broader usability and compliance | Design and testing effort | Any human-facing UI exists | Never for public or employee software |
 | Automation | Repeatability | Tooling investment | Work is repeated or risky | One-time low-risk manual work |
 | Simplicity | Lower long-term cost | May delay advanced capabilities | Requirements can be met simply | Scale or compliance demands more structure |
+| Safety by design | Prevents harm on fault | Fail-safe design cost, can reduce availability | Physical, financial, or life-safety consequences exist | Consequences of malfunction are purely cosmetic |
 
 ---
 
@@ -307,6 +332,27 @@ flowchart TB
 | **YAGNI** | You Aren't Gonna Need It |
 | **Zero Trust** | "Never trust, always verify" — authenticate/authorize every request |
 
+### Standards & Compliance Glossary (added alongside [`13`](13-standards-crosswalk.md))
+
+| Term | Definition |
+|---|---|
+| **CLDR** | Unicode Common Locale Data Repository — locale data (formats, pluralization, collation) underlying i18n libraries |
+| **CRA** | EU Cyber Resilience Act — security-by-design/SBOM/vuln-handling obligations for products with digital elements sold in the EU |
+| **CycloneDX / SPDX** | The two dominant machine-readable **SBOM** formats (OWASP / Linux Foundation respectively) |
+| **EAA** | European Accessibility Act — EU directive requiring accessibility for consumer products/services, deadlines from June 2025 |
+| **EN 301 549** | The EU's harmonized ICT accessibility standard; incorporates WCAG and extends it to non-web ICT |
+| **i18n / l10n** | Internationalization (design so software *can* adapt to locales) / Localization (adapting content for a specific locale) — [03 §12](03-software-design-principles.md#12-internationalization--localization-i18nl10n) |
+| **ISO/IEC 25010** | The SQuaRE product quality model — 9 characteristics incl. Safety (2023); the standard behind this guide's quality-attribute catalog ([06 §2](06-quality-attributes-tradeoffs.md#2-the-quality-attributes-catalog)) |
+| **ISO/IEC 5055** | CISQ Automated Source Code Quality Measures — ISO standard measuring Reliability/Performance Efficiency/Security/Maintainability directly from source code |
+| **ISO/IEC/IEEE 42010** | The architecture-description standard: stakeholders → concerns → viewpoints → views ([01 §9.2b](01-architecture-principles.md#92b-the-formal-standard-behind-views-isoiecieee-42010)) |
+| **LINDDUN** | A privacy-specific threat-modeling methodology (the privacy counterpart to STRIDE) |
+| **MASVS / MASTG** | OWASP Mobile Application Security Verification Standard / Testing Guide ([12 §8](12-mobile-application-design.md#8-mobile-security)) |
+| **NIST CSF** | NIST Cybersecurity Framework — Govern/Identify/Protect/Detect/Respond/Recover |
+| **PIMS** | Privacy Information Management System — ISO/IEC 27701's certifiable extension of an ISMS |
+| **SBOM** | Software Bill of Materials — see also **CycloneDX / SPDX** |
+| **SLSA** | Supply-chain Levels for Software Artifacts — graduated build-provenance/integrity framework |
+| **SQuaRE** | Systems and software Quality Requirements and Evaluation — the ISO/IEC 250xx series (25010/25012/25023/25040) |
+
 ---
 
 ## Standard Entry Format
@@ -327,4 +373,4 @@ Most principles and patterns in this reference use a consistent structure so you
 
 ---
 
-*This reference is intentionally comprehensive and technology-agnostic. Treat every principle as a tool with a context — the value is in understanding the **reasoning** so you can judge when each applies. Specific quantitative figures (e.g., Core Web Vitals thresholds, availability "nines", framework binary sizes) reflect commonly published industry values and may evolve; verify against the current primary source ([`09`](09-references.md)) for production decisions.*
+*This reference is intentionally comprehensive and technology-agnostic. Treat every principle as a tool with a context — the value is in understanding the **reasoning** so you can judge when each applies. Specific quantitative figures (e.g., Core Web Vitals thresholds, availability "nines", framework binary sizes) reflect commonly published industry values and may evolve; verify against the current primary source ([`09`](09-references.md)) for production decisions. Where this guide's vocabulary needs to map onto a named international standard or regulation, see [`13`](13-standards-crosswalk.md) — standard editions and regulatory status also evolve and should be verified against the issuing body.*

@@ -66,6 +66,8 @@ Immutable **Model → View → Messages → Update** loop. Predictable state, ti
 
 Guidance: **let the toolkit lead** — fighting your framework's idiomatic pattern costs more than it saves.
 
+> **Standard:** the underlying design discipline behind "let the toolkit lead" and platform-convention-following (§5) is **ISO 9241-210**, the international standard for **human-centred design** for interactive systems — understand context of use, specify user requirements, produce design solutions, evaluate against requirements, iterate. It's a *process* standard, not a checklist; see [`13` §8](13-standards-crosswalk.md#8-accessibility).
+
 ---
 
 ## 3. Cross-Platform vs Native: The Core Decision
@@ -239,6 +241,7 @@ The user controls the runtime and can inspect/tamper; secrets are stored locally
 | Input/IPC validation | Treat all renderer/IPC input as untrusted |
 | Supply chain | Reproducible builds, dependency scanning, pinned versions |
 | Sensitive data handling | Keep secrets out of logs, crash dumps, temp files |
+| Build provenance | **SLSA** provenance + a generated **SBOM** (SPDX/CycloneDX) for the shipped installer, matching the supply-chain practices in [07 §4](07-security-reliability-operations.md#4-supply-chain-security) |
 
 ### 9.2 Electron-Specific Security
 Electron combines Chromium, Node.js, and native capabilities — that power must be constrained:
@@ -296,6 +299,8 @@ Produce per-OS artifacts ([§5.4](#54-per-os-conventions-cheat-sheet)); prefer *
 
 The signing key is the "crown jewel" — store it in an HSM or secure CI, never in the repo.
 
+> **Regulatory note:** the **EU Cyber Resilience Act (CRA)** imposes security-by-design, vulnerability-handling, and SBOM-adjacent obligations on "products with digital elements" sold in the EU, with obligations phasing in through 2027 — this applies to shipped desktop installers, not just cloud services. See [07 §4](07-security-reliability-operations.md#4-supply-chain-security) and [`13` §6](13-standards-crosswalk.md#6-supply-chain-security).
+
 ### 11.3 Auto-Update
 Flow: check → download → **verify signature** → apply. Frameworks: Squirrel, Sparkle/WinSparkle, Tauri updater, MSIX/Store, Linux package managers. It is a prime attack vector and a way to brick apps — use staged rollouts, support rollback, verify signatures, and respect enterprise opt-out ([04 §7 A03/A08](04-web-application-design.md#71-owasp-top-10-2025)). Monitor update success and crash rates by version; test migration from old versions.
 
@@ -311,7 +316,7 @@ Flow: check → download → **verify signature** → apply. Frameworks: Squirre
 
 ## 12. Desktop-Specific Quality Attributes & Decision Workflow
 
-Re-weighting the quality-attribute catalog ([06 §2](06-quality-attributes-tradeoffs.md#2-the-quality-attributes-catalog)) for desktop:
+Re-weighting the quality-attribute catalog ([06 §2](06-quality-attributes-tradeoffs.md#2-the-quality-attributes-catalog); see the **ISO/IEC 25010** mapping there) for desktop — **Portability**, **Compatibility** (cross-OS/version coexistence), and **Safety** (data-loss prevention on crash, §6.4) are the 25010 characteristics desktop apps typically weight most heavily relative to a server system:
 
 | Attribute | Desktop emphasis |
 |---|---|
@@ -366,3 +371,4 @@ flowchart TD
 - **Architecture & design:** [`01`](01-architecture-principles.md), [`02`](02-architecture-patterns.md), [`03`](03-software-design-principles.md).
 - **Quality attributes & trade-offs:** [`06`](06-quality-attributes-tradeoffs.md).
 - **Security, updates, telemetry:** [`07`](07-security-reliability-operations.md). **Checklists:** [`08` §8](08-checklists-and-templates.md#8-desktop-application-checklist).
+- **Mobile counterpart (shares offline/sync & MV* foundations):** [`12`](12-mobile-application-design.md). **Standards crosswalk:** [`13`](13-standards-crosswalk.md).
